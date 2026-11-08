@@ -151,6 +151,20 @@ test('persists and returns the YouTube video ID and thumbnail for a locally adde
   assert.equal(cached?.thumbnailUrl, previewThumbnail);
 });
 
+test('persists favorites per owner and returns cached display metadata', async () => {
+  const ownerHeaders = { 'x-dev-user-id': '100000001' };
+  const saved = await app.inject({ method: 'POST', url: '/api/favorites/' + previewVideo, headers: ownerHeaders });
+  assert.equal(saved.statusCode, 204);
+  const ownerFavorites = await app.inject({ method: 'GET', url: '/api/favorites', headers: ownerHeaders });
+  assert.ok(ownerFavorites.json().some((favorite: { videoId: string; thumbnail: string }) => favorite.videoId === previewVideo && favorite.thumbnail === previewThumbnail));
+  const otherFavorites = await app.inject({ method: 'GET', url: '/api/favorites', headers: { authorization: telegramAuth(200000002) } });
+  assert.deepEqual(otherFavorites.json(), []);
+  const removed = await app.inject({ method: 'DELETE', url: '/api/favorites/' + previewVideo, headers: ownerHeaders });
+  assert.equal(removed.statusCode, 204);
+  const empty = await app.inject({ method: 'GET', url: '/api/favorites', headers: ownerHeaders });
+  assert.equal(empty.json().some((favorite: { videoId: string }) => favorite.videoId === previewVideo), false);
+});
+
 test('expires old YouTube cache without deleting playlists, local tracks, favorites, or playback history', async () => {
   const database = (await import('./database.js')).getDatabase();
   const user = await database.user.create({ data: { telegramId: BigInt(Date.now()) * 100_000n + 300000003n, firstName: 'Cache cleanup owner' } });
