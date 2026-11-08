@@ -57,4 +57,4 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the one-service Render setup, H
 - `npm run build`
 - `npx prisma validate`
 
-Database-backed integration checks require PostgreSQL. Live Telegram and YouTube integration checks also require user-provided credentials. Render Free deployment instructions are in `docs/DEPLOYMENT.md`; no live Render service has been created or verified yet.
+Database-backed integration checks require PostgreSQL. Live Telegram and YouTube integration checks also require user-provided credentials. The Render Free service is deployed at [telegram-music-mhem.onrender.com](https://telegram-music-mhem.onrender.com); its homepage and health endpoint returned HTTP 200. Telegram commands, real YouTube import, and audible playback still need live verification. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for deployment and free-plan limits.

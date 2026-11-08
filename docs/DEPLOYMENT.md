@@ -2,6 +2,10 @@
 
 This guide deploys one Render Web Service for the Fastify API, Telegram webhook, static Mini App, and periodic sync loop. It keeps Neon as the database. Do not create a Render database or run `db push`, reset, or drop commands.
 
+## Current service status (2026-11-08)
+
+The Render Free service is deployed at [https://telegram-music-mhem.onrender.com](https://telegram-music-mhem.onrender.com). Live checks returned HTTP 200 for `/`, `/health`, and `/api/health`; the API health response showed development auth and YouTube mock mode disabled. An unauthenticated `/api/playlists` request returned 401, as expected. Telegram commands/webhook delivery, real YouTube import, and audible iframe playback have not yet been verified. The owner has not configured an external keep-awake monitor.
+
 ## Free-plan behavior
 
 Render Free is suitable for a hobby/demo deployment, not guaranteed continuous production service. A free web service spins down after 15 minutes without inbound HTTP/WebSocket traffic and may take about a minute to wake on the next request. Render grants 750 free instance-hours per workspace per calendar month; usage is shared across that workspace, and services can be suspended when the allowance is exhausted. Free services can restart at any time, have an ephemeral filesystem, are limited to one instance, and have lower inbound limits. A 31-day month is 744 hours, leaving little room under the 750-hour allowance if the service is kept awake. Render may also suspend a free service that generates unusually high outbound traffic. See [Render's free instance limits](https://render.com/docs/free).

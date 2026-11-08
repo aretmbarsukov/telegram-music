@@ -1,16 +1,17 @@
 # Handoff — 2026-11-08
 
-## Render Free preparation (not deployed yet)
+## Render Free deployment
 
-- User selected Render Free (no card) instead of a paid host. A private GitHub repository `aretmbarsukov/telegram-music` was created and the initial project commit pushed. No Render service has been submitted yet; the dashboard form is prepared with the private `main` branch, Frankfurt region, Free plan, `npm ci && npm run db:generate && npm run build`, `npm start`, and `/health` check. If the Render flow requests a payment card, stop without entering one.
-- Production Fastify now exposes a shallow public `GET /health` route for host checks. The existing `GET /api/health` remains unchanged for local dev-auth detection. Render supplies `RENDER_EXTERNAL_URL`; when explicit `APP_ORIGIN`/`TELEGRAM_WEBHOOK_URL` are absent, the config uses that HTTPS value for the first webhook/menu setup. After Render returns the permanent URL, set both explicit variables in the dashboard.
-- The production Fastify process starts the periodic sync loop; no separate Render worker is needed. It polls every minute, checks database-due sources, and uses a process-level non-overlapping runner plus the existing atomic per-source sync claim. App shutdown stops the interval and closes Prisma. The local `npm run worker` command remains supported.
-- Added `src/non-overlapping.ts` and a unit test proving overlapping loop calls are skipped and the runner becomes available after completion. Added a health-response assertion to the integration suite. Fixed integration test setup to explicitly override both token env names with its fake token, so a local `.env` token is never used for test HMAC validation.
-- Added `docs/DEPLOYMENT.md` with Render build/start commands, required dashboard env vars, webhook flow, health path, UptimeRobot/cron-job.org steps, update procedure, and Free-plan caveats. README and architecture docs now describe the one-process production setup.
-- Actual local checks on 2026-11-08 after the URL fallback change: `npm run lint`, `npm run typecheck`, `npm test` (32/32), and `npm run build` passed. Tests used PGlite and mocks, not live Telegram or YouTube credentials.
-- `git init -b main` was run. `git check-ignore -v .env` returned `.gitignore:3:.env .env`. A high-confidence scan of 56 non-secret candidate files and the committed tree found no Google API-key or Telegram bot-token patterns and no unrecognized PostgreSQL credential URI; five known local/test PostgreSQL fixtures were found. `.env` was excluded from staging and is absent from the initial commit. Git author name/email are configured. Initial commit: `8b48b60 Prepare Render Free deployment`; docs update commit `89d385a Document Render deployment preparation`. The private GitHub remote is configured and `main` was pushed. URL fallback change is currently uncommitted pending final staged secret scan.
-- Render Free's published limit is 15 minutes idle-to-sleep, roughly one-minute cold start, and 750 shared instance-hours per workspace/month. A five-minute external probe may reduce spin-down but does not guarantee uptime or override platform restarts/limits. A 31-day continuously-running month consumes 744 hours before any other workspace services.
-- Live deployment, secrets entry, Telegram webhook/commands, real YouTube playlist import, and audible iframe playback remain unverified. No external host env vars were set and no YouTube/Telegram API calls were made in this deployment-prep step.
+- The user selected Render Free, with no card or paid add-ons. Private GitHub repo: `aretmbarsukov/telegram-music`, branch `main`. Render web service `telegram-music` was created in Frankfurt from commit `ca51017` using `npm ci && npm run db:generate && npm run build`, `npm start`, Free compute, and health path `/health`.
+- Public URL: `https://telegram-music-mhem.onrender.com`. Actual HTTP checks on 2026-11-08: `GET /` returned 200 and the Luna HTML; `GET /health` returned 200 with `{"ok":true,"service":"telegram-music"}`; `GET /api/health` returned 200 with dev auth disabled and YouTube mock disabled; unauthenticated `GET /api/playlists` returned 401 as expected. This verifies the live app/API process and auth boundary, not Telegram command handling or YouTube import/playback.
+- Render environment fields were populated by the owner. No secret values belong in this document. A prior accessibility inspection accidentally emitted the credential values in a tool output; the owner was informed and explicitly chose to continue without rotation. Do not inspect, repeat, log, or commit any credential values.
+- Production Fastify exposes the shallow public `GET /health`; `GET /api/health` remains for local dev-auth detection. When explicit `APP_ORIGIN` and `TELEGRAM_WEBHOOK_URL` are absent, config uses Render's `RENDER_EXTERNAL_URL` for HTTPS app/webhook setup. The generated URL above is the expected base URL. Explicit URL env vars are still recommended in Render after creation.
+- Production Fastify starts the periodic sync loop in-process; no separate Render worker is needed. It scans each minute, uses a process-level overlap guard and atomic per-source sync claim, and stops the timer during shutdown. Local `npm run worker` remains supported.
+- `docs/DEPLOYMENT.md` covers build/start, environment variables, webhook, health, monitor setup, updates, and Free plan limits. The user will create the optional UptimeRobot/cron-job.org account; no monitor is currently configured.
+- Actual local checks on 2026-11-08 after the deployment URL fallback change: `npm run lint`, `npm run typecheck`, `npm test` (32/32), and `npm run build` passed. These tests used PGlite/mocks and are not live Telegram or YouTube verification.
+- `.env` was ignored by Git (`git check-ignore -v .env` returned `.gitignore:3:.env .env`) and excluded from commits. Secret scan covered 56 candidate files and committed history without finding Google API-key or Telegram bot-token patterns or an unrecognized PostgreSQL credential URI. Initial commits: `8b48b60`, `89d385a`, `ca51017`; private `main` was pushed to GitHub.
+- Render Free sleeps after 15 minutes idle, may take about a minute to cold-start, and has 750 shared instance-hours per workspace/month. A 5-minute ping may reduce sleeping but does not guarantee uptime; a 31-day always-on month uses 744 hours before other workspace services.
+- Still unverified: Telegram `setWebhook`/menu and real `/start`, `/playlists`, `/sync`, `/settings` interactions; real YouTube playlist import; audible iframe playback inside Telegram; external monitor. Verify these before claiming them as working.
 
 ## Neon PostgreSQL provisioning and verification
 
@@ -50,8 +51,9 @@
 
 ## Current next steps
 
-- Manually verify the IFrame session and mobile layout when local browser access is available. Confirm which demo videos currently allow embeds; no live player session was verified during this implementation.
-- With real credentials, verify Telegram `initData`, YouTube Data API import/sync, and the IFrame flow in Telegram Mini App. No keys are configured here.
+- In the deployed app, test Telegram `/start`, `/playlists`, `/sync`, and `/settings`; confirm the menu button launches the public Mini App. Use the existing service `https://telegram-music-mhem.onrender.com` and do not expose secrets while diagnosing logs.
+- Create the owner's five-minute UptimeRobot HTTP monitor for `https://telegram-music-mhem.onrender.com/health`; this account was not created by the agent and cannot guarantee continuous uptime.
+- Verify real public YouTube playlist import and audible IFrame playback in Telegram Mini App. Do not claim these work based only on `/health` or build success.
 - Continue account-data deletion/privacy work. Native PostgreSQL migration and integration tests were verified on Neon PostgreSQL 17; exact PostgreSQL 16 compatibility remains unverified.
 
 ## Frontend/backend integration update
@@ -64,7 +66,7 @@
 - Copied `app.js`, `index.html`, and `api-states.css` to `public/`; verified SHA-256 hashes of root and served copies matched at the time of copying.
 - Actual verification: lint, typecheck, build, and tests pass (16/16). The running `dev:demo` server also passed HTTP smoke requests for health, playlist create, mock YouTube import, and playlist details (4 imported tracks; first title `Moonlight Walk`; source status `SUCCESS`).
 - Requested visual review could not run: the browser local-origin permission gate declined navigation to `http://127.0.0.1:8787`. No screenshot was captured and no alternate browser path was attempted.
-- No real Telegram token or YouTube API key was configured; production Telegram and YouTube connections remain unverified. Favorites REST persistence remains outstanding; playback history GET/POST is implemented and integration-tested.
+- At the time of this frontend integration checkpoint, no real Telegram token or YouTube API key was configured. The later Render deployment is recorded at the top of this file. Favorites REST persistence remains outstanding; playback history GET/POST is implemented and integration-tested.
 
 ## Integration test update
 
@@ -102,9 +104,9 @@ Implemented a safe split between YouTube API cache and user-owned tracks/members
 ## Remaining blockers
 
 - **Resolved:** native PostgreSQL migration deployment, migration status/schema diff, and the integration suite have been verified on Neon PostgreSQL 17. PostgreSQL 16-specific compatibility is not verified. Never reset production or cascade-delete user data.
-- No `YOUTUBE_API_KEY`, `TELEGRAM_BOT_TOKEN`, public HTTPS Mini App URL, or local database. YouTube and Telegram flows remain unverified against live services.
+- The live Render URL and owner-entered production credentials are now configured, but Telegram commands, real YouTube import, and audible playback remain unverified. The public HTTPS URL is `https://telegram-music-mhem.onrender.com`.
 - Metadata rehydration by video ID remains untested against a database/API integration fixture.
-- Account data deletion route, privacy policy, production deployment and monitoring remain outstanding.
+- Account data deletion route, privacy policy, external monitoring, and direct verification of production Telegram/YouTube integrations remain outstanding.
 - Favorites REST persistence remains incomplete. Playback-history GET/POST API and user scoping are implemented and covered by integration tests; frontend uses these endpoints for Recently Played.
 
 ## Continue
