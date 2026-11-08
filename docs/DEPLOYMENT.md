@@ -4,7 +4,7 @@ This guide deploys one Render Web Service for the Fastify API, Telegram webhook,
 
 ## Current service status (2026-11-08)
 
-The Render Free service is deployed at [https://telegram-music-mhem.onrender.com](https://telegram-music-mhem.onrender.com). Live checks returned HTTP 200 for `/`, `/health`, and `/api/health`; the API health response showed development auth and YouTube mock mode disabled. An unauthenticated `/api/playlists` request returned 401, as expected. Telegram commands/webhook delivery, real YouTube import, and audible iframe playback have not yet been verified. The owner has not configured an external keep-awake monitor.
+The Render Free service is deployed at [https://telegram-music-mhem.onrender.com](https://telegram-music-mhem.onrender.com). Live checks returned HTTP 200 for `/`, `/health`, and `/api/health`; the API health response showed development auth and YouTube mock mode disabled. An unauthenticated `/api/playlists` request returned 401, as expected. Render startup logs showed the server listening and successful webhook registration (the startup sequence configures bot commands and the Mini App menu button first). Actual bot commands, a fresh Mini App session, real YouTube import, and audible iframe playback have not yet been verified. The owner has not configured an external keep-awake monitor.
 
 ## Free-plan behavior
 
