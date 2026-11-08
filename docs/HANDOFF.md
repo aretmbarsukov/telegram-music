@@ -134,3 +134,10 @@ Read `AGENTS.md`, `README.md`, this file and `docs/NEXT_AGENT_PROMPT.md`. Neon P
 - Added no background playback, audio extraction, yt-dlp, player overlays, or branding concealment. YouTube's own iframe controls and branding remain visible. Player queue tests and error/skip tests remain in the suite.
 - Actual checks after the final source changes: `npm run lint`, `npm run typecheck`, `npm test` (37/37), `npm run build`, and `git diff --check` passed. Render `/` and `/health` returned HTTP 200 after deployment. Root and `public/` copies of the HTML/JS/CSS were synchronized; the asset URLs are versioned to avoid a stale player stylesheet after deployment.
 - Latest implementation commit `68d89e5` was pushed to private `main` and confirmed live on Render. Follow-up docs commit will be pushed separately.
+
+## Mini App library initialization fix — 2026-11-08
+
+- Fixed the reported `Cannot set properties of null (setting 'textContent')` on library startup. After the mini-player markup was simplified, `renderPlayer()` still tried to set `#mini-player-title` and `#mini-player-channel`; `render()` runs before any current track exists, so that stale access threw during API bootstrap and was shown as a library connection error. Removed those detached-node writes.
+- Added `player-ui.test.js` to check static player selector IDs against the served HTML and to assert the root/public HTML copies match. Bumped the module URL to `app.js?v=player-video-first-fix` to avoid reusing an older cached module.
+- Actual checks after the fix: `npm run lint`, `npm run typecheck`, `npm test` (38/38), and `npm run build` passed.
+- Pushed commit `6b1c8ad` to private `main`. Live checks: Render `GET /` returned 200 and referenced the versioned JS; the JS response no longer contains the removed mini-player IDs; `/health` returned 200. Reloading the public Render browser page produced no captured console errors/warnings. This is not a Telegram-account-authenticated Mini App session; ask the owner to close and reopen the Mini App to validate the library against its current session without inspecting or logging `initData`.
