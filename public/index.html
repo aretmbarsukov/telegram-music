@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101114"><title>Луна — твоя музична бібліотека</title>
+  <link rel="preconnect" href="https://www.youtube.com"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="api-states.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="#home"><span class="brand-mark">♫</span><span>luna<span class="brand-dot">.</span></span></a>
+      <div class="side-label">МЕНЮ</div>
+      <nav class="nav"><button class="nav-item active" data-view="home"><span>⌂</span> Головна</button><button class="nav-item" data-view="library"><span>▤</span> Моя бібліотека</button><button class="nav-item" data-view="favorites"><span>♡</span> Улюблене</button><button class="nav-item" data-view="recent"><span>◷</span> Нещодавні</button></nav>
+      <div class="side-label collection-label">ТВОЇ ПЛЕЙЛИСТИ <button id="side-add" class="icon-button" aria-label="Створити плейлист">＋</button></div>
+      <div id="side-playlists" class="side-playlists"></div>
+      <div class="sidebar-bottom"><span class="avatar">♫</span><div><b>Музична бібліотека</b><small>Збережено на цьому пристрої</small></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div class="mobile-brand">♫ <b>luna<span class="brand-dot">.</span></b></div><div class="breadcrumbs">Моя музика <span>/</span> <b id="crumb">Головна</b></div><div class="top-actions"><span id="connection-badge" class="local-badge"><i></i> Підключення API</span><button class="avatar small">♫</button></div></header>
+      <div id="connection-banner" class="connection-banner" role="status" aria-live="polite" hidden><span></span><button type="button" onclick="window.location.reload()">Спробувати ще</button></div>
+      <section id="view-home" class="view active">
+        <div class="hero"><div class="hero-copy"><div class="eyebrow">ТВОЯ МУЗИКА, ТВОЇ ПРАВИЛА</div><h1>Знайди свій<br><em>ритм.</em></h1><p>Улюблені треки та плейлисти — в одному місці.</p><button id="hero-play" class="primary"><span>▶</span> Слухати зараз</button></div><div class="hero-art"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="hero-note">♫</div><div class="equalizer"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="hero-index">01 <span>—</span> 04</div></div>
+        <div class="quick-grid"><button class="quick-card" data-action="add-track"><span class="quick-icon pink">＋</span><span><b>Додати трек</b><small>За посиланням YouTube</small></span><span class="arrow">↗</span></button><button class="quick-card" data-action="import"><span class="quick-icon red">↧</span><span><b>Імпортувати плейлист</b><small>Підключити YouTube плейлист</small></span><span class="arrow">↗</span></button><button class="quick-card" data-action="create"><span class="quick-icon purple">▦</span><span><b>Новий плейлист</b><small>Створи власну добірку</small></span><span class="arrow">↗</span></button></div>
+        <div class="section-heading"><div><div class="eyebrow">ТВОЇ ДОБІРКИ</div><h2>Останні плейлисти</h2></div><button class="text-button" data-view="library">Уся бібліотека <span>→</span></button></div>
+        <div id="home-playlists" class="playlist-grid"></div>
+        <div class="section-heading track-heading"><div><div class="eyebrow">ПОВЕРНИСЯ ДО МУЗИКИ</div><h2>Нещодавні треки</h2></div></div><div id="home-tracks" class="track-list"></div>
+      </section>
+      <section id="view-library" class="view"><div class="page-head"><div><div class="eyebrow">ТВОЯ КОЛЕКЦІЯ</div><h1>Моя бібліотека</h1><p>Усі твої добірки в одному місці.</p></div><button id="create-button" class="primary">＋ Створити плейлист</button></div><div class="toolbar"><label class="search"><span>⌕</span><input id="search" placeholder="Пошук у бібліотеці"></label><select id="sort"><option value="updated">Нещодавні</option><option value="name">За назвою</option><option value="count">За кількістю треків</option></select></div><div id="library-playlists" class="playlist-grid"></div></section>
+      <section id="view-favorites" class="view"><div class="page-head"><div><div class="eyebrow">ТВОЇ НАЙКРАЩІ</div><h1>Улюблене</h1><p>Треки, якими хочеться ділитися.</p></div></div><div id="favorite-tracks" class="track-list"></div></section>
+      <section id="view-recent" class="view"><div class="page-head"><div><div class="eyebrow">ТВОЯ ІСТОРІЯ</div><h1>Нещодавні</h1><p>Те, що ти слухав останнім часом.</p></div></div><div id="recent-tracks" class="track-list"></div></section>
+      <section id="view-playlist" class="view"><button class="back-button" data-view="library">← Бібліотека</button><div id="playlist-detail"></div></section>
+      <section id="view-player" class="view"><button class="back-button" data-view="home">← Головна</button><div class="player-page"><div class="eyebrow">ЗАРАЗ ГРАЄ</div><h1>Твій YouTube плеєр</h1><p>Відтворення працює через офіційний YouTube плеєр із його стандартними елементами керування.</p><div id="youtube-player" class="youtube-player"></div><div class="player-track-title" id="player-track-title">Обери композицію</div><p id="playback-message" class="playback-message" role="status" aria-live="polite"></p><a id="youtube-original" class="youtube-original" target="_blank" rel="noopener noreferrer" hidden>Відкрити оригінал на YouTube ↗</a><div class="queue-panel"><h2>Черга відтворення</h2><div id="queue-list"></div></div></div></section>
+    </main>
+    <footer class="player-bar"><div id="now-playing" class="now-playing"><div class="mini-cover">♫</div><div class="now-meta"><b>Обери свій трек</b><small>YouTube плеєр</small></div><button id="now-fav" class="heart" aria-label="Додати в улюблене">♡</button></div><div class="player-controls"><div class="control-row"><button id="shuffle" class="control" aria-label="Перемішати">⤨</button><button id="previous" class="control" aria-label="Попередній">|◀</button><button id="player-toggle" class="play-toggle" aria-label="Відтворити">▶</button><button id="next" class="control" aria-label="Наступний">▶|</button><button id="repeat" class="control" aria-label="Повторити">↻</button></div><div class="progress-row"><span id="current-time">0:00</span><div class="progress"><i id="progress-fill"></i></div><span id="duration">0:00</span></div></div><div class="player-right"><button id="queue-toggle" class="control queue-button">☷ <span>Черга</span></button><span class="volume">◖</span></div></footer>
+  </div>
+  <dialog id="modal"><form method="dialog" id="modal-form"><button class="modal-close" value="cancel" aria-label="Закрити">×</button><div id="modal-content"></div></form></dialog>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script><script src="https://www.youtube.com/iframe_api"></script><script type="module" src="app.js"></script>
+</body></html>

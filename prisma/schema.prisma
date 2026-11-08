@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PlaylistItemOrigin {
+  YOUTUBE_SYNC
+  LOCAL
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  UNAVAILABLE
+}
+
+enum YouTubeCacheStatus {
+  FRESH
+  STALE
+  EXPIRED
+  UNAVAILABLE
+}
+
+model User {
+  id           String            @id @default(cuid())
+  telegramId   BigInt            @unique
+  username     String?
+  firstName    String
+  lastName     String?
+  languageCode String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  playlists    Playlist[]
+  favorites    Favorite[]
+  history      PlaybackHistory[]
+  settings     UserSettings?
+  youtubeSources YouTubeSource[]
+}
+
+model Playlist {
+  id          String          @id @default(cuid())
+  userId      String
+  title       String?         @db.VarChar(120)
+  artworkUrl  String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       PlaylistItem[]
+  youtube     YouTubeSource?
+
+  @@index([userId, updatedAt])
+}
+
+model Track {
+  id             String            @id @default(cuid())
+  youtubeVideoId String            @unique @db.VarChar(20)
+  items          PlaylistItem[]
+  favorites      Favorite[]
+  history        PlaybackHistory[]
+}
+
+model PlaylistItem {
+  id              String            @id @default(cuid())
+  playlistId      String
+  trackId         String
+  origin          PlaylistItemOrigin
+  sourceItemId    String?           @db.VarChar(100)
+  customTitle     String?           @db.VarChar(300)
+  position        Int
+  createdAt       DateTime          @default(now())
+  playlist        Playlist          @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track           Track             @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@unique([playlistId, sourceItemId])
+  @@unique([playlistId, trackId])
+  @@index([playlistId, position])
+}
+
+model YouTubeSource {
+  id             String        @id @default(cuid())
+  playlistId     String        @unique
+  ownerUserId    String
+  youtubeId      String        @db.VarChar(100)
+  cachedTitle    String?       @db.VarChar(300)
+  cachedThumbnailUrl String?
+  metadataStatus YouTubeCacheStatus @default(EXPIRED)
+  metadataAt     DateTime?
+  metadataRetryAt DateTime?
+  status         SyncStatus    @default(UNAVAILABLE)
+  intervalMins   Int           @default(30)
+  lastAttemptAt  DateTime?
+  lastSuccessAt  DateTime?
+  nextSyncAt     DateTime      @default(now())
+  lastError      String?
+  playlist       Playlist      @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  owner          User           @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  history        SyncHistory[]
+
+  @@unique([ownerUserId, youtubeId])
+  @@index([nextSyncAt, status])
+}
+
+model SyncHistory {
+  id          String       @id @default(cuid())
+  sourceId    String
+  startedAt   DateTime     @default(now())
+  finishedAt  DateTime?
+  status      SyncStatus   @default(RUNNING)
+  added       Int          @default(0)
+  removed     Int          @default(0)
+  reordered   Int          @default(0)
+  errorCode   String?
+  source      YouTubeSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, startedAt])
+}
+
+model UserSettings {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  language       String   @default("uk") @db.VarChar(8)
+  theme          String   @default("system") @db.VarChar(16)
+  syncEnabled    Boolean  @default(true)
+  syncIntervalMins Int    @default(30)
+  notificationsEnabled Boolean @default(true)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  userId    String
+  trackId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId])
+  @@index([userId, createdAt])
+}
+
+model PlaybackHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  trackId   String
+  playedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@index([userId, playedAt])
+}
+
+model YouTubeQuotaDay {
+  day       String   @id @db.VarChar(10)
+  units     Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+// Deliberately has no foreign key to Track: expiring this API cache must never
+// cascade into a user's playlist membership, favorites, or playback history.
+model YouTubeMetadata {
+  videoId        String            @id @db.VarChar(20)
+  title          String?
+  channelTitle   String?
+  thumbnailUrl   String?
+  duration       String?
+  status         YouTubeCacheStatus @default(FRESH)
+  refreshedAt    DateTime?
+  lastAttemptAt  DateTime?
+  retryAt        DateTime?
+  lastErrorCode  String?
+
+  @@index([status, refreshedAt, retryAt])
+}

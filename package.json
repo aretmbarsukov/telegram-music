@@ -1,0 +1,53 @@
+{
+  "name": "telegram-music-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Telegram music library and YouTube playlist sync",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "dev:demo": "npm run build && node scripts/dev-demo.mjs",
+    "start": "node dist/server.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "npm run build && node --test dist/auth.test.js dist/youtube.test.js dist/sync.test.js dist/integration.test.js dist/bot.test.js dist/telegram-webhook.test.js dist/telegram-notifications.test.js dist/worker.test.js player-queue.test.js",
+    "lint": "eslint app.js player-queue.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "bot": "tsx src/bot.ts",
+    "worker": "tsx src/worker.ts",
+    "db:push": "prisma db push"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@fastify/cors": "^11.4.1",
+    "@fastify/rate-limit": "^11.2.2",
+    "@fastify/static": "^10.1.10",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
+    "dotenv": "^18.0.9",
+    "fastify": "^5.12.8",
+    "grammy": "^1.46.0",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.4.3",
+    "@electric-sql/pglite-socket": "^0.1.3",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "eslint": "^10.14.0",
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@prisma/client@7.10.1": true,
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true
+  }
+}
