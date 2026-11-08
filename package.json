@@ -10,7 +10,7 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "npm run build && node --test dist/auth.test.js dist/youtube.test.js dist/sync.test.js dist/integration.test.js dist/bot.test.js dist/telegram-webhook.test.js dist/telegram-notifications.test.js dist/worker.test.js player-queue.test.js",
+    "test": "npm run build && node --test dist/auth.test.js dist/youtube.test.js dist/sync.test.js dist/integration.test.js dist/bot.test.js dist/telegram-webhook.test.js dist/telegram-notifications.test.js dist/worker.test.js player-queue.test.js player-errors.test.js",
     "lint": "eslint app.js player-queue.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

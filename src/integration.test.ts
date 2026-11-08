@@ -13,6 +13,8 @@ const videoB = 'BBBB0000002';
 const videoC = 'CCCC0000003';
 const videoD = 'DDDD0000004';
 const localVideo = 'LOCL0000005';
+const previewVideo = 'THUMB000001';
+const previewThumbnail = `https://i.ytimg.com/vi/${previewVideo}/hqdefault.jpg`;
 const remotePlaylistItems = [videoA, videoB, videoC];
 let pg: PGlite | undefined;
 let pgServer: PGLiteSocketServer | undefined;
@@ -60,6 +62,18 @@ before(async () => {
   const publicHealth = await app.inject({ method: 'GET', url: '/health' });
   assert.equal(publicHealth.statusCode, 200);
   assert.equal(publicHealth.json().ok, true);
+  const home = await app.inject({ method: 'GET', url: '/' });
+  const csp = home.headers['content-security-policy'];
+  assert.ok(csp);
+  assert.match(csp, /script-src[^;]*https:\/\/www\.youtube\.com/);
+  assert.match(csp, /script-src[^;]*https:\/\/telegram\.org/);
+  assert.match(csp, /frame-src[^;]*https:\/\/www\.youtube\.com[^;]*https:\/\/www\.youtube-nocookie\.com/);
+  assert.match(csp, /img-src[^;]*https:\/\/i\.ytimg\.com[^;]*data:/);
+  assert.match(csp, /connect-src[^;]*'self'[^;]*https:\/\/telegram\.org/);
+  assert.match(csp, /frame-ancestors[^;]*web\.telegram\.org/);
+  assert.equal(home.headers['permissions-policy'], 'autoplay=(self "https://www.youtube.com" "https://www.youtube-nocookie.com"), encrypted-media=(self "https://www.youtube.com" "https://www.youtube-nocookie.com")');
+  assert.equal(home.headers['referrer-policy'], 'strict-origin-when-cross-origin');
+  assert.equal(home.headers['x-frame-options'], undefined);
 
   originalFetch = globalThis.fetch;
   globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
@@ -72,7 +86,11 @@ before(async () => {
     if (url.pathname.endsWith('/playlistItems')) {
       return Response.json({ items: remoteIds.map((id, index) => ({ id: `source-${index}-${id}`, snippet: { title: `Title ${id}`, channelTitle: 'Fixture Channel', resourceId: { videoId: id } }, contentDetails: { videoId: id } })) });
     }
-    if (url.pathname.endsWith('/videos')) throw new Error('Mocked YouTube Data API transport failure');
+    if (url.pathname.endsWith('/videos')) {
+      const ids = (url.searchParams.get('id') ?? '').split(',');
+      if (ids.includes(previewVideo)) return Response.json({ items: [{ id: previewVideo, snippet: { title: 'Verified thumbnail fixture', channelTitle: 'YouTube Developers', thumbnails: { high: { url: previewThumbnail } } }, contentDetails: { duration: 'PT2M30S' } }] });
+      throw new Error('Mocked YouTube Data API transport failure');
+    }
     throw new Error(`Unexpected YouTube API endpoint: ${url.pathname}`);
   }) as typeof fetch;
 });
@@ -113,6 +131,24 @@ test('imports a mocked public playlist, deduplicates videos, reconciles sync, pr
   assert.equal(ownerFailure.statusCode, 404);
   const otherUserList = await app.inject({ method: 'GET', url: '/api/playlists', headers: { authorization: telegramAuth(200000002) } });
   assert.deepEqual(otherUserList.json(), []);
+});
+
+test('persists and returns the YouTube video ID and thumbnail for a locally added video', async () => {
+  const headers = { 'x-dev-user-id': '100000001' };
+  const database = (await import('./database.js')).getDatabase();
+  const created = await app.inject({ method: 'POST', url: '/api/playlists', headers, payload: { name: 'Thumbnail fixture playlist' } });
+  assert.equal(created.statusCode, 201);
+  const playlistIdInDb = created.json().id as string;
+  const preview = await app.inject({ method: 'POST', url: '/api/youtube/preview', headers, payload: { url: `https://www.youtube.com/watch?v=${previewVideo}` } });
+  assert.equal(preview.statusCode, 200, preview.body);
+  assert.deepEqual({ kind: preview.json().kind, videoId: preview.json().videoId, thumbnail: preview.json().thumbnail }, { kind: 'video', videoId: previewVideo, thumbnail: previewThumbnail });
+  const added = await app.inject({ method: 'POST', url: `/api/playlists/${playlistIdInDb}/tracks`, headers, payload: { videoId: previewVideo, title: 'Verified thumbnail fixture' } });
+  assert.equal(added.statusCode, 201, added.body);
+  const detail = await app.inject({ method: 'GET', url: `/api/playlists/${playlistIdInDb}`, headers });
+  assert.equal(detail.statusCode, 200);
+  assert.deepEqual({ videoId: detail.json().items[0].track.id, thumbnail: detail.json().items[0].track.thumbnail }, { videoId: previewVideo, thumbnail: previewThumbnail });
+  const cached = await database.youTubeMetadata.findUnique({ where: { videoId: previewVideo } });
+  assert.equal(cached?.thumbnailUrl, previewThumbnail);
 });
 
 test('expires old YouTube cache without deleting playlists, local tracks, favorites, or playback history', async () => {

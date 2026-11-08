@@ -4,3 +4,4 @@
 /* Official iframe dimensions and playback feedback */
 .youtube-player{min-height:200px}.player-track-title{margin-bottom:12px}.playback-message{min-height:18px;color:#ffbf7e}.youtube-original{display:inline-block;margin:4px 0 18px;color:#efa1c1;font-size:12px}.youtube-original[hidden]{display:none}
 .queue-item.is-current{color:#f0a5c4}
+.track-cover img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}

@@ -32,6 +32,28 @@ const idSchema = z.string().min(1).max(64);
 const titleSchema = z.string().trim().min(1).max(120);
 const videoIdSchema = z.string().regex(/^[\w-]{11}$/);
 
+const contentSecurityPolicy = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'self' https://web.telegram.org https://*.web.telegram.org",
+  "script-src 'self' https://telegram.org https://www.youtube.com https://s.ytimg.com",
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:",
+  "img-src 'self' https://i.ytimg.com https://*.ytimg.com https://img.youtube.com data:",
+  "connect-src 'self' https://telegram.org https://www.youtube.com https://youtube.com https://*.youtube.com",
+  "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+].join('; ');
+
+app.addHook('onSend', async (_request, reply, payload) => {
+  reply.header('Content-Security-Policy', contentSecurityPolicy);
+  reply.header('Permissions-Policy', 'autoplay=(self "https://www.youtube.com" "https://www.youtube-nocookie.com"), encrypted-media=(self "https://www.youtube.com" "https://www.youtube-nocookie.com")');
+  reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  reply.header('X-Content-Type-Options', 'nosniff');
+  return payload;
+});
+
 await app.register(cors, { origin: config.APP_ORIGIN, methods: ['GET', 'POST', 'PATCH', 'DELETE'] });
 await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
 await app.register(staticFiles, { root: resolve(process.cwd(), 'public'), prefix: '/', index: ['index.html'] });
