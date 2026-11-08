@@ -26,7 +26,7 @@ The five-minute external monitor below sends inbound requests often enough to re
 
 4. Choose the **Free** instance and a region. Do not select an upgrade or paid add-on. If the UI asks for a payment card, stop; no card is needed for the chosen plan.
 5. In service settings, set the HTTP health check path to `/health`. The service must bind `HOST=0.0.0.0`; Render supplies `PORT` (normally `10000`). The application uses `config.PORT` and `config.HOST`.
-6. Create the service to obtain its generated `https://….onrender.com` URL. If the first deploy cannot start because production variables are not set yet, enter the variables below in **Environment** and redeploy.
+6. Before creating the service, enter `DATABASE_URL`, `BOT_TOKEN`, and `TELEGRAM_WEBHOOK_SECRET` in the protected environment fields. The app uses Render's built-in `RENDER_EXTERNAL_URL` as a fallback for `APP_ORIGIN` and `TELEGRAM_WEBHOOK_URL` during the first boot, so it can register the correct webhook without guessing its generated hostname. After the service is created, copy its generated URL into explicit `APP_ORIGIN` and `TELEGRAM_WEBHOOK_URL` variables and redeploy.
 
 ## Environment variables
 
@@ -38,8 +38,8 @@ Set these in the Render service's **Environment** page only. Use Render's genera
 | `HOST` | `0.0.0.0` |
 | `PORT` | Leave unset; Render provides it. |
 | `BOT_MODE` | `webhook` |
-| `APP_ORIGIN` | The service's generated HTTPS URL. |
-| `TELEGRAM_WEBHOOK_URL` | The same generated HTTPS base URL; the server appends `/telegram/webhook`. |
+| `APP_ORIGIN` | The service's generated HTTPS URL. On initial boot the app falls back to Render's built-in `RENDER_EXTERNAL_URL`; set this explicit value after the host is generated. |
+| `TELEGRAM_WEBHOOK_URL` | The same generated HTTPS base URL; the server appends `/telegram/webhook`. On initial boot the app falls back to Render's built-in `RENDER_EXTERNAL_URL`; set this explicit value after the host is generated. |
 | `DEV_AUTH_ENABLED` | `false` |
 | `YOUTUBE_MOCK_MODE` | `false` |
 | `YOUTUBE_DAILY_QUOTA_LIMIT` | Optional; default is `9000`. |
@@ -48,9 +48,9 @@ Set these in the Render service's **Environment** page only. Use Render's genera
 | `YOUTUBE_API_KEY` | Google Cloud server-side YouTube Data API v3 key. Set this as a secret. |
 | `TELEGRAM_WEBHOOK_SECRET` | Long random value containing only letters, digits, `_`, or `-`. Set this as a secret. |
 
-Do not copy the project `.env` into Render. Do not put secret values in `render.yaml`, Git, issue trackers, logs, screenshots, or chat. Generate the webhook secret locally with a cryptographically secure random generator and paste it directly into Render's secret value field; do not save or share the generated output. Keep the Neon branch/database unchanged.
+Do not copy the project `.env` into Render. Do not put secret values in `render.yaml`, Git, issue trackers, logs, screenshots, or chat. Use Render's **Generate** control for `TELEGRAM_WEBHOOK_SECRET`, keep the value masked, and do not copy or share it. Enter the Neon URL, bot token, and YouTube API key directly in their protected Render fields. Keep the Neon branch/database unchanged.
 
-At startup, the app configures Telegram's chat menu button and calls Bot API `setWebhook` with the secret. It checks `X-Telegram-Bot-Api-Secret-Token` on every webhook request. The configured hook path is `/telegram/webhook`.
+At startup, the app configures Telegram's chat menu button and calls Bot API `setWebhook` with the secret. It checks `X-Telegram-Bot-Api-Secret-Token` on every webhook request. The configured hook path is `/telegram/webhook`. Render automatically supplies `RENDER_EXTERNAL_URL` to web services; the config uses it only when the explicit URL variables are not set.
 
 The periodic sync loop runs inside the production API process. It scans for due sources every minute and uses an in-process overlap guard plus the existing per-source database claim. Do not also start `npm run worker` on Render. For local development, the standalone `npm run worker` remains available.
 

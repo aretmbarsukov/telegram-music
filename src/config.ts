@@ -15,11 +15,15 @@ const schema = z.object({
   DEV_AUTH_ENABLED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   YOUTUBE_MOCK_MODE: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   YOUTUBE_DAILY_QUOTA_LIMIT: z.coerce.number().int().min(1).max(10_000).default(9_000),
-  APP_ORIGIN: z.string().url().default('http://localhost:8787'),
+  APP_ORIGIN: z.string().url(),
   DEV_AUTH_USER_ID: z.string().regex(/^\d{1,20}$/).default('100000001'),
 });
 
-export const config = schema.parse(process.env);
+export const config = schema.parse({
+  ...process.env,
+  APP_ORIGIN: process.env.APP_ORIGIN ?? process.env.RENDER_EXTERNAL_URL ?? 'http://localhost:8787',
+  TELEGRAM_WEBHOOK_URL: process.env.TELEGRAM_WEBHOOK_URL ?? process.env.RENDER_EXTERNAL_URL,
+});
 export const telegramBotToken = config.BOT_TOKEN || config.TELEGRAM_BOT_TOKEN;
 
 if (config.NODE_ENV === 'production' && (config.DEV_AUTH_ENABLED || config.YOUTUBE_MOCK_MODE)) {
