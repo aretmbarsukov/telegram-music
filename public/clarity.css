@@ -1,4 +1,4 @@
-/* Clarity: empty states + mobile nav + persistent player + non-interactive video */
+/* Clarity: empty states + mobile nav + persistent player + adaptive video cover */
 
 .empty {
   display: flex;
@@ -39,7 +39,6 @@
   border-radius: 10px;
 }
 
-/* Mobile bottom navigation — sits under the player bar */
 .mobile-nav {
   display: none;
 }
@@ -91,7 +90,6 @@
     opacity: 0.75;
   }
 
-  /* Player bar sits above the nav */
   .player-bar {
     bottom: calc(56px + var(--safe-bottom, 0px)) !important;
     height: 140px !important;
@@ -107,7 +105,6 @@
     bottom: calc(208px + var(--safe-bottom, 0px));
   }
 
-  /* Keep bottom player always visible (even on player view) */
   body.is-player-view .mobile-nav {
     display: grid !important;
   }
@@ -129,6 +126,12 @@
     min-width: 36px;
     min-height: 36px;
   }
+
+  /* Mobile: near-square stage fits music videos better */
+  .player-stage {
+    aspect-ratio: 1 / 1;
+    max-height: min(72vw, 420px);
+  }
 }
 
 @media (min-width: 701px) {
@@ -137,34 +140,80 @@
   }
 }
 
-/* Always show bottom player */
 body.is-player-view .player-bar {
   display: grid !important;
 }
 
-/* Non-interactive YouTube surface — video visible, taps blocked */
+/*
+  Adaptive video surface:
+  - container has fixed aspect
+  - iframe is scaled to COVER the box
+  - black letterbox bars are cropped away
+  - works for square / vertical / horizontal YouTube videos
+*/
 .player-stage {
   position: relative;
   isolation: isolate;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: min(56vw, 520px);
+  margin: 14px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0a0a0c;
 }
 
+/* Block taps on the video; controls only via bottom player */
 .player-stage::after {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 5;
-  border-radius: 12px;
+  border-radius: inherit;
   background: transparent;
   cursor: default;
   pointer-events: auto;
 }
 
-.youtube-player,
-.youtube-player iframe {
+.youtube-player {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+  border-radius: inherit;
+  overflow: hidden !important;
+  background: #0a0a0c !important;
   pointer-events: none !important;
 }
 
-/* Progress bar is the seek control */
+/* Cover-scale the iframe so letterbox bars are outside the crop */
+.youtube-player iframe {
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+  transform: translate(-50%, -50%) scale(1.34) !important;
+  transform-origin: center center !important;
+  pointer-events: none !important;
+}
+
+/* Mini embed while browsing playlists */
+body.is-mini-player #view-player .player-stage {
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
+  margin: 0 0 8px;
+}
+
+body.is-mini-player #view-player .youtube-player iframe {
+  transform: translate(-50%, -50%) scale(1.28) !important;
+}
+
 .progress {
   cursor: pointer;
   min-height: 8px;
