@@ -8,7 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "dev:demo": "npm run build && node scripts/dev-demo.mjs",
     "start": "node dist/server.js",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && cp app.js player-queue.js player-errors.js player-volume.js public/",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "npm run build && node --test dist/auth.test.js dist/youtube.test.js dist/sync.test.js dist/integration.test.js dist/bot.test.js dist/telegram-webhook.test.js dist/telegram-notifications.test.js dist/worker.test.js player-queue.test.js player-errors.test.js player-ui.test.js player-volume.test.js",
     "lint": "eslint app.js player-queue.js player-volume.js",
