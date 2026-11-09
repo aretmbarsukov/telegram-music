@@ -1,4 +1,12 @@
-/* Clarity: monochrome black & white theme */
+/* Clarity: black & white + warm yellow accents */
+
+:root {
+  --yellow: #f0c gener;
+  --yellow: #f0c43c;
+  --yellow-soft: #f6d76a;
+  --yellow-dim: #c9a227;
+  --yellow-ink: #1a1508;
+}
 
 .empty {
   display: flex;
@@ -83,7 +91,7 @@
   }
 
   .mobile-nav-item.active {
-    color: #fff;
+    color: var(--yellow-soft, #f6d76a);
   }
 
   .mobile-nav-item:active {
@@ -214,7 +222,7 @@ body.is-mini-player #view-player .youtube-player iframe {
   transform: translate(-50%, -50%) scale(1.28) !important;
 }
 
-/* Seek bar — monochrome */
+/* Seek bar */
 .progress-row {
   gap: 10px;
 }
@@ -257,7 +265,7 @@ body.is-mini-player #view-player .youtube-player iframe {
   height: 5px;
   margin-top: -2.5px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #888, #fff);
+  background: linear-gradient(90deg, #c9a227, #f0c43c) !important;
   pointer-events: none;
   z-index: 1;
 }
@@ -271,8 +279,8 @@ body.is-mini-player #view-player .youtube-player iframe {
   margin-left: -7px;
   margin-top: -7px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  background: #f0c43c !important;
+  box-shadow: 0 0 0 2px rgba(240, 196, 60, 0.25), 0 1px 4px rgba(0, 0, 0, 0.55);
   pointer-events: none;
   z-index: 2;
   opacity: 0;
@@ -292,54 +300,97 @@ body.is-mini-player #view-player .youtube-player iframe {
 }
 
 .progress:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid #f0c43c;
   outline-offset: 4px;
 }
 
-/* Force monochrome accents everywhere */
+/* Yellow accent spots */
 .nav-item.active span,
 .control.on,
 .heart.is-fav,
 .brand-dot,
-.mobile-brand,
 .text-button,
 .youtube-original,
 .queue-item.is-current {
+  color: #f0c43c !important;
+}
+
+.mobile-brand {
+  color: #f0c43c !important;
+}
+
+.mobile-brand b {
   color: #fff !important;
 }
 
 .primary,
 .play-toggle {
-  background: #fff !important;
-  color: #0a0a0a !important;
+  background: #f0c43c !important;
+  color: #1a1508 !important;
+}
+
+.primary:hover,
+.play-toggle:hover {
+  filter: brightness(1.08);
 }
 
 .brand-mark {
-  background: linear-gradient(145deg, #fff, #888) !important;
-  color: #0a0a0a !important;
+  background: linear-gradient(145deg, #f6d76a, #c9a227) !important;
+  color: #1a1508 !important;
 }
 
 .toast {
-  background: #f0f0f0 !important;
-  color: #0a0a0a !important;
+  background: #f0c43c !important;
+  color: #1a1508 !important;
 }
 
-.quick-icon.pink,
+.quick-icon.pink {
+  background: #2a2410 !important;
+  color: #f0c43c !important;
+}
+
 .quick-icon.red,
 .quick-icon.purple {
   background: #2a2a2a !important;
-  color: #fff !important;
+  color: #e8e8e8 !important;
 }
 
 .hero {
-  background: linear-gradient(115deg, #222 0%, #181818 50%, #101010 100%) !important;
+  background: linear-gradient(115deg, #1c1a12 0%, #141410 50%, #0e0e0c 100%) !important;
 }
 
 .hero h1 em {
-  color: #fff !important;
+  color: #f0c43c !important;
+}
+
+.hero .eyebrow {
+  color: #d4b84a !important;
+}
+
+.equalizer i {
+  background: #f0c43c !important;
+}
+
+.orb-one {
+  background: radial-gradient(circle at 35% 30%, #f6d76a, #c9a227 40%, #4a3f18 75%, #1a1a12 100%) !important;
+  opacity: 0.55;
+}
+
+.local-badge.is-online i {
+  background: #f0c43c !important;
+}
+
+.field:focus {
+  border-color: #f0c43c !important;
+}
+
+.lang-switch button.active {
+  background: #f0c43c !important;
+  color: #1a1508 !important;
+  border-color: #f0c43c !important;
 }
 
 .avatar {
-  background: #2a2a2a !important;
-  color: #ccc !important;
+  background: #2a2410 !important;
+  color: #f0c43c !important;
 }
