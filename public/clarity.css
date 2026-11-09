@@ -1,4 +1,4 @@
-/* Clarity: empty states + mobile nav + persistent player + adaptive video cover */
+/* Clarity: empty states + mobile nav + persistent player + adaptive video + seek bar */
 
 .empty {
   display: flex;
@@ -127,10 +127,18 @@
     min-height: 36px;
   }
 
-  /* Mobile: near-square stage fits music videos better */
   .player-stage {
     aspect-ratio: 1 / 1;
     max-height: min(72vw, 420px);
+  }
+
+  .progress {
+    height: 6px;
+  }
+
+  .progress-thumb {
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -144,13 +152,6 @@ body.is-player-view .player-bar {
   display: grid !important;
 }
 
-/*
-  Adaptive video surface:
-  - container has fixed aspect
-  - iframe is scaled to COVER the box
-  - black letterbox bars are cropped away
-  - works for square / vertical / horizontal YouTube videos
-*/
 .player-stage {
   position: relative;
   isolation: isolate;
@@ -163,7 +164,6 @@ body.is-player-view .player-bar {
   background: #0a0a0c;
 }
 
-/* Block taps on the video; controls only via bottom player */
 .player-stage::after {
   content: '';
   position: absolute;
@@ -190,7 +190,6 @@ body.is-player-view .player-bar {
   pointer-events: none !important;
 }
 
-/* Cover-scale the iframe so letterbox bars are outside the crop */
 .youtube-player iframe {
   position: absolute !important;
   top: 50% !important;
@@ -203,7 +202,6 @@ body.is-player-view .player-bar {
   pointer-events: none !important;
 }
 
-/* Mini embed while browsing playlists */
 body.is-mini-player #view-player .player-stage {
   aspect-ratio: 16 / 9;
   max-height: 220px;
@@ -214,11 +212,85 @@ body.is-mini-player #view-player .youtube-player iframe {
   transform: translate(-50%, -50%) scale(1.28) !important;
 }
 
-.progress {
-  cursor: pointer;
-  min-height: 8px;
+/* ===== Interactive seek bar ===== */
+.progress-row {
+  gap: 10px;
 }
 
-.progress:active {
-  opacity: 0.85;
+.progress {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  min-height: 5px;
+  border-radius: 999px;
+  background: #34353d;
+  overflow: visible !important;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  /* Larger invisible hit area for finger/mouse */
+  padding: 12px 0;
+  margin: -12px 0;
+  background-clip: content-box;
+}
+
+.progress::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 999px;
+  background: #34353d;
+  pointer-events: none;
+}
+
+.progress #progress-fill,
+.progress > i {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 5px;
+  margin-top: -2.5px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #efa1c1, #f075ad);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.progress-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.progress:hover .progress-thumb,
+.progress.is-seeking .progress-thumb,
+.progress:focus-visible .progress-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.progress.is-seeking {
+  cursor: grabbing;
+}
+
+.progress:focus-visible {
+  outline: 2px solid #f4a7c8;
+  outline-offset: 4px;
 }
