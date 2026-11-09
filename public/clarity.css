@@ -1,4 +1,4 @@
-/* Clarity: empty states with clear actions + mobile nav */
+/* Clarity: empty states with clear actions + mobile nav below player */
 
 .empty {
   display: flex;
@@ -39,27 +39,28 @@
   border-radius: 10px;
 }
 
-/* Mobile bottom navigation — always visible on phone, Telegram-friendly */
+/* Mobile bottom navigation — sits under the player bar */
 .mobile-nav {
   display: none;
 }
 
 @media (max-width: 700px) {
+  /* Nav at the very bottom */
   .mobile-nav {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(140px + var(--safe-bottom, 0px));
-    z-index: 15;
-    height: 56px;
-    background: rgba(16, 17, 22, 0.97);
+    bottom: 0;
+    z-index: 25;
+    height: calc(56px + var(--safe-bottom, 0px));
+    background: rgba(16, 17, 22, 0.98);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-top: 1px solid var(--line, #2a2b33);
     padding: 0 4px;
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-bottom: var(--safe-bottom, 0px);
   }
 
   .mobile-nav-item {
@@ -91,6 +92,14 @@
     opacity: 0.75;
   }
 
+  /* Player bar sits above the nav */
+  .player-bar {
+    bottom: calc(56px + var(--safe-bottom, 0px)) !important;
+    height: 140px !important;
+    padding-bottom: 8px !important;
+    z-index: 20;
+  }
+
   .shell {
     padding-bottom: calc(196px + var(--safe-bottom, 0px));
   }
@@ -99,16 +108,14 @@
     bottom: calc(208px + var(--safe-bottom, 0px));
   }
 
-  body.is-player-view .mobile-nav {
-    display: none;
+  /* Full player view: hide both bars */
+  body.is-player-view .mobile-nav,
+  body.is-player-view .player-bar {
+    display: none !important;
   }
 
   body.is-player-view .shell {
     padding-bottom: calc(24px + var(--safe-bottom, 0px));
-  }
-
-  body.is-mini-player .mobile-nav {
-    bottom: calc(140px + var(--safe-bottom, 0px));
   }
 
   .track-row {
