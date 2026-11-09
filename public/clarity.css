@@ -1,4 +1,4 @@
-/* Clarity: empty states with clear actions + mobile nav below player */
+/* Clarity: empty states + mobile nav + persistent player + non-interactive video */
 
 .empty {
   display: flex;
@@ -45,7 +45,6 @@
 }
 
 @media (max-width: 700px) {
-  /* Nav at the very bottom */
   .mobile-nav {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -108,14 +107,17 @@
     bottom: calc(208px + var(--safe-bottom, 0px));
   }
 
-  /* Full player view: hide both bars */
-  body.is-player-view .mobile-nav,
+  /* Keep bottom player always visible (even on player view) */
+  body.is-player-view .mobile-nav {
+    display: grid !important;
+  }
+
   body.is-player-view .player-bar {
-    display: none !important;
+    display: grid !important;
   }
 
   body.is-player-view .shell {
-    padding-bottom: calc(24px + var(--safe-bottom, 0px));
+    padding-bottom: calc(196px + var(--safe-bottom, 0px));
   }
 
   .track-row {
@@ -133,4 +135,41 @@
   .mobile-nav {
     display: none !important;
   }
+}
+
+/* Always show bottom player */
+body.is-player-view .player-bar {
+  display: grid !important;
+}
+
+/* Non-interactive YouTube surface — video visible, taps blocked */
+.player-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+.player-stage::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: 12px;
+  background: transparent;
+  cursor: default;
+  pointer-events: auto;
+}
+
+.youtube-player,
+.youtube-player iframe {
+  pointer-events: none !important;
+}
+
+/* Progress bar is the seek control */
+.progress {
+  cursor: pointer;
+  min-height: 8px;
+}
+
+.progress:active {
+  opacity: 0.85;
 }
