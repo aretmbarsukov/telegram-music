@@ -1,4 +1,4 @@
-/* Clarity: empty states + mobile nav + persistent player + adaptive video + seek bar */
+/* Clarity: monochrome black & white theme */
 
 .empty {
   display: flex;
@@ -8,9 +8,9 @@
   gap: 14px;
   padding: 48px 24px;
   text-align: center;
-  color: #8a8792;
+  color: #8a8a8a;
   font-size: 13px;
-  border: 1px dashed #35353e;
+  border: 1px dashed #333;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.02);
   line-height: 1.55;
@@ -20,7 +20,7 @@
 .empty-text {
   margin: 0;
   max-width: 280px;
-  color: #9a97a2;
+  color: #9a9a9a;
 }
 
 .empty-actions {
@@ -53,10 +53,10 @@
     bottom: 0;
     z-index: 25;
     height: calc(56px + var(--safe-bottom, 0px));
-    background: rgba(16, 17, 22, 0.98);
+    background: rgba(10, 10, 10, 0.98);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid var(--line, #2a2b33);
+    border-top: 1px solid #2a2a2a;
     padding: 0 4px;
     padding-bottom: var(--safe-bottom, 0px);
   }
@@ -64,7 +64,7 @@
   .mobile-nav-item {
     border: 0;
     background: transparent;
-    color: #8a8792;
+    color: #8a8a8a;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -83,7 +83,7 @@
   }
 
   .mobile-nav-item.active {
-    color: var(--pink-soft, #f4a7c8);
+    color: #fff;
   }
 
   .mobile-nav-item:active {
@@ -95,6 +95,8 @@
     height: 140px !important;
     padding-bottom: 8px !important;
     z-index: 20;
+    background: rgba(12, 12, 12, 0.98) !important;
+    border-top-color: #2a2a2a !important;
   }
 
   .shell {
@@ -161,7 +163,7 @@ body.is-player-view .player-bar {
   margin: 14px 0;
   border-radius: 14px;
   overflow: hidden;
-  background: #0a0a0c;
+  background: #0a0a0a;
 }
 
 .player-stage::after {
@@ -186,7 +188,7 @@ body.is-player-view .player-bar {
   aspect-ratio: auto !important;
   border-radius: inherit;
   overflow: hidden !important;
-  background: #0a0a0c !important;
+  background: #0a0a0a !important;
   pointer-events: none !important;
 }
 
@@ -212,7 +214,7 @@ body.is-mini-player #view-player .youtube-player iframe {
   transform: translate(-50%, -50%) scale(1.28) !important;
 }
 
-/* ===== Interactive seek bar ===== */
+/* Seek bar — monochrome */
 .progress-row {
   gap: 10px;
 }
@@ -223,13 +225,12 @@ body.is-mini-player #view-player .youtube-player iframe {
   height: 5px;
   min-height: 5px;
   border-radius: 999px;
-  background: #34353d;
+  background: #333;
   overflow: visible !important;
   cursor: pointer;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
-  /* Larger invisible hit area for finger/mouse */
   padding: 12px 0;
   margin: -12px 0;
   background-clip: content-box;
@@ -244,7 +245,7 @@ body.is-mini-player #view-player .youtube-player iframe {
   height: 5px;
   margin-top: -2.5px;
   border-radius: 999px;
-  background: #34353d;
+  background: #333;
   pointer-events: none;
 }
 
@@ -256,7 +257,7 @@ body.is-mini-player #view-player .youtube-player iframe {
   height: 5px;
   margin-top: -2.5px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #efa1c1, #f075ad);
+  background: linear-gradient(90deg, #888, #fff);
   pointer-events: none;
   z-index: 1;
 }
@@ -271,7 +272,7 @@ body.is-mini-player #view-player .youtube-player iframe {
   margin-top: -7px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
   pointer-events: none;
   z-index: 2;
   opacity: 0;
@@ -291,6 +292,54 @@ body.is-mini-player #view-player .youtube-player iframe {
 }
 
 .progress:focus-visible {
-  outline: 2px solid #f4a7c8;
+  outline: 2px solid #fff;
   outline-offset: 4px;
+}
+
+/* Force monochrome accents everywhere */
+.nav-item.active span,
+.control.on,
+.heart.is-fav,
+.brand-dot,
+.mobile-brand,
+.text-button,
+.youtube-original,
+.queue-item.is-current {
+  color: #fff !important;
+}
+
+.primary,
+.play-toggle {
+  background: #fff !important;
+  color: #0a0a0a !important;
+}
+
+.brand-mark {
+  background: linear-gradient(145deg, #fff, #888) !important;
+  color: #0a0a0a !important;
+}
+
+.toast {
+  background: #f0f0f0 !important;
+  color: #0a0a0a !important;
+}
+
+.quick-icon.pink,
+.quick-icon.red,
+.quick-icon.purple {
+  background: #2a2a2a !important;
+  color: #fff !important;
+}
+
+.hero {
+  background: linear-gradient(115deg, #222 0%, #181818 50%, #101010 100%) !important;
+}
+
+.hero h1 em {
+  color: #fff !important;
+}
+
+.avatar {
+  background: #2a2a2a !important;
+  color: #ccc !important;
 }
