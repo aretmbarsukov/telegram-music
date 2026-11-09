@@ -1,4 +1,4 @@
-/* Minimal bootstrap client — connection fix */
+/* Playlist fix — API items[].track mapping */
 import { buildQueue, firstPlayableIndex, nextPlayableIndex, previousPlayableIndex, shuffleUpcoming } from './player-queue.js';
 import { playerErrorDetails } from './player-errors.js';
 import { togglePlayerAudio } from './player-volume.js';
@@ -27,15 +27,15 @@ function setConnection(message = '', kind = '') {
   if (badge) {
     badge.classList.toggle('is-online', kind === 'connected');
     const label = kind === 'connected'
-      ? (apiHealth?.youtubeMockEnabled ? 'API \u00b7 demo YouTube' : 'API \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u043e')
-      : (apiContext ? '\u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435\u2026' : '\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u0440\u0435\u0436\u0438\u043c');
+      ? (apiHealth?.youtubeMockEnabled ? 'API · demo' : 'API подключено')
+      : (apiContext ? 'Подключение…' : 'Локальный режим');
     badge.innerHTML = `<i></i> ${label}`;
   }
 }
 
 async function apiRequest(path, options = {}) {
   if (apiContext && !apiHealth) await bootstrapPromise;
-  if (apiContext && !apiHealth) throw new Error('\u0421\u0435\u0441\u0441\u0438\u044f API \u043d\u0435 \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u043e\u0432\u0430\u043d\u0430');
+  if (apiContext && !apiHealth) throw new Error('Сессия API не авторизована');
   const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (telegram?.initData) headers.Authorization = `tma ${telegram.initData}`;
   else if (localApi && apiHealth?.devAuthEnabled) headers['x-dev-user-id'] = apiHealth.devAuthUserId;
@@ -43,8 +43,8 @@ async function apiRequest(path, options = {}) {
   try {
     response = await fetch(path, { ...options, headers });
   } catch {
-    setConnection('\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0435\u0434\u0438\u043d\u0438\u0442\u044c\u0441\u044f \u0441 API.', 'error');
-    throw new Error('\u0421\u0435\u0440\u0432\u0435\u0440 \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d');
+    setConnection('Не удалось соединиться с API.', 'error');
+    throw new Error('Сервер недоступен');
   }
   const data = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
@@ -132,7 +132,7 @@ function renderSidebar() {
   const el = $('#side-playlists');
   if (!el) return;
   el.innerHTML = state.playlists.map(p =>
-    `<button class="side-playlist" data-playlist="${esc(p.id)}"><span class="side-dot">\u266b</span>${esc(p.name)}</button>`
+    `<button class="side-playlist" data-playlist="${esc(p.id)}"><span class="side-dot">♫</span>${esc(p.name)}</button>`
   ).join('') || '<small style="color:#777;padding:8px">-</small>';
 }
 
@@ -140,14 +140,14 @@ function renderHome() {
   const hp = $('#home-playlists'), ht = $('#home-tracks');
   if (hp) {
     hp.innerHTML = state.playlists.slice(0, 4).map(p =>
-      `<article class="playlist-card" data-playlist="${esc(p.id)}"><div class="cover"><span class="cover-symbol">\u266b</span><span class="cover-title">${esc(p.name)}</span></div><div class="card-meta"><b>${esc(p.name)}</b><span>${p.trackCount || 0}</span></div></article>`
-    ).join('') || empty('empty');
+      `<article class="playlist-card" data-playlist="${esc(p.id)}"><div class="cover"><span class="cover-symbol">♫</span><span class="cover-title">${esc(p.name)}</span></div><div class="card-meta"><b>${esc(p.name)}</b><span>${p.trackCount || 0}</span></div></article>`
+    ).join('') || empty('Пока пусто');
   }
   if (ht) {
     ht.innerHTML = state.recent.slice(0, 5).map((id, i) => {
       const t = state.tracks[id]; if (!t) return '';
-      return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">\u266b</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || 'YouTube')}</small></div><button class="row-play" data-track="${esc(id)}">\u25b6</button></div>`;
-    }).join('') || empty('empty');
+      return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">♫</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || 'YouTube')}</small></div><button type="button" class="row-play" data-track="${esc(id)}">▶</button></div>`;
+    }).join('') || empty('История пуста');
   }
 }
 
@@ -155,8 +155,8 @@ function renderLibrary() {
   const el = $('#library-playlists');
   if (!el) return;
   el.innerHTML = state.playlists.map(p =>
-    `<article class="playlist-card" data-playlist="${esc(p.id)}"><div class="cover"><span class="cover-symbol">\u266b</span><span class="cover-title">${esc(p.name)}</span></div><div class="card-meta"><b>${esc(p.name)}</b><span>${p.trackCount || 0}</span></div></article>`
-  ).join('') || empty('empty');
+    `<article class="playlist-card" data-playlist="${esc(p.id)}"><div class="cover"><span class="cover-symbol">♫</span><span class="cover-title">${esc(p.name)}</span></div><div class="card-meta"><b>${esc(p.name)}</b><span>${p.trackCount || 0}</span></div></article>`
+  ).join('') || empty('Библиотека пуста');
 }
 
 function renderFavs() {
@@ -164,8 +164,8 @@ function renderFavs() {
   if (!el) return;
   el.innerHTML = state.favorites.map((id, i) => {
     const t = state.tracks[id]; if (!t) return '';
-    return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">\u266b</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || '')}</small></div></div>`;
-  }).join('') || empty('empty');
+    return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">♫</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || '')}</small></div><button type="button" class="row-play" data-track="${esc(id)}" data-track-context='${esc(JSON.stringify(state.favorites))}'>▶</button></div>`;
+  }).join('') || empty('Избранное пусто');
 }
 
 function renderRecent() {
@@ -173,8 +173,8 @@ function renderRecent() {
   if (!el) return;
   el.innerHTML = state.recent.map((id, i) => {
     const t = state.tracks[id]; if (!t) return '';
-    return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">\u266b</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || '')}</small></div></div>`;
-  }).join('') || empty('empty');
+    return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">♫</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || '')}</small></div><button type="button" class="row-play" data-track="${esc(id)}" data-track-context='${esc(JSON.stringify(state.recent))}'>▶</button></div>`;
+  }).join('') || empty('История пуста');
 }
 
 function renderPlayer() {
@@ -182,8 +182,12 @@ function renderPlayer() {
   const meta = $('#now-playing .now-meta');
   if (meta) {
     if (t) meta.innerHTML = `<b>${esc(t.title)}</b><small>${esc(t.channel || 'YouTube')}</small>`;
-    else meta.innerHTML = `<b>...</b><small>\u25b6</small>`;
+    else meta.innerHTML = `<b>Выбери трек</b><small>▶</small>`;
   }
+  const title = $('#player-track-title');
+  if (title) title.textContent = t ? t.title : 'Выбери композицию';
+  const ch = $('#player-track-channel');
+  if (ch) ch.textContent = t ? (t.channel || 'YouTube') : 'YouTube';
   updatePlayerHost();
 }
 
@@ -201,6 +205,9 @@ function showView(name) {
   if (crumb) crumb.textContent = name;
   updatePlayerHost();
   window.scrollTo(0, 0);
+  if (window.LunaNav && typeof window.LunaNav.showView === 'function' && name !== 'playlist' && name !== 'player') {
+    /* nav.js may also update; keep in sync */
+  }
 }
 
 function updatePlayerHost() {
@@ -212,32 +219,62 @@ function updatePlayerHost() {
 
 async function openPlaylist(id) {
   currentPlaylist = id;
+  showView('playlist');
+  const box = $('#playlist-detail');
+  if (box) box.innerHTML = '<div class="empty"><p class="empty-text">Загрузка…</p></div>';
   try {
     const detail = await apiRequest('/api/playlists/' + encodeURIComponent(id));
     const p = state.playlists.find(x => x.id === id);
-    if (p && detail?.tracks) {
-      p.trackIds = detail.tracks.map(t => {
-        state.tracks[t.videoId] = {
-          id: t.videoId, title: t.title, channel: t.channel || 'YouTube',
-          thumbnail: t.thumbnail || '', duration: t.duration || '',
-          availability: t.availability, metadataStatus: t.metadataStatus
+    const items = detail?.items || detail?.tracks || [];
+    if (p) {
+      p.trackIds = items.map(i => {
+        const tr = i.track || i;
+        const vid = tr.id || tr.videoId || i.videoId;
+        if (!vid) return null;
+        state.tracks[vid] = {
+          id: vid,
+          title: tr.title || 'YouTube',
+          channel: tr.channel || 'YouTube',
+          thumbnail: tr.thumbnail || '',
+          duration: tr.duration || '',
+          availability: tr.availability,
+          metadataStatus: tr.metadataStatus
         };
-        return t.videoId;
-      });
+        return vid;
+      }).filter(Boolean);
+      if (detail.name) p.name = detail.name;
+      p.trackCount = p.trackIds.length;
     }
   } catch (e) {
-    notify(e.message);
+    notify(e.message || String(e));
+    if (box) box.innerHTML = '<div class="empty"><p class="empty-text">' + esc(e.message || 'Ошибка') + '</p></div>';
+    return;
   }
-  showView('playlist');
-  const box = $('#playlist-detail');
-  if (!box) return;
   const p = state.playlists.find(x => x.id === id);
-  if (!p) return;
+  if (!box) return;
+  if (!p) {
+    box.innerHTML = '<div class="empty"><p class="empty-text">Плейлист не найден</p></div>';
+    return;
+  }
   const tracks = p.trackIds || [];
-  box.innerHTML = `<div class="playlist-hero"><div class="cover"><span class="cover-symbol">\u266b</span></div><div><h1>${esc(p.name)}</h1><p>${tracks.length}</p></div></div><div class="track-list">${tracks.map((tid, i) => {
-    const t = state.tracks[tid]; if (!t) return '';
-    return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, '0')}</span><div class="track-cover">\u266b</div><div class="track-info"><b>${esc(t.title)}</b><small>${esc(t.channel || '')}</small></div><button class="row-play" data-track="${esc(tid)}" data-track-context='${esc(JSON.stringify(tracks))}'>\u25b6</button></div>`;
-  }).join('') || empty('empty')}</div>`;
+  const ctx = esc(JSON.stringify(tracks));
+  const rows = tracks.map((tid, i) => {
+    const t = state.tracks[tid];
+    if (!t) return '';
+    const thumb = t.thumbnail
+      ? '<img src="' + esc(t.thumbnail) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+      : '♫';
+    return '<div class="track-row">'
+      + '<span class="track-order">' + String(i + 1).padStart(2, '0') + '</span>'
+      + '<div class="track-cover">' + thumb + '</div>'
+      + '<div class="track-info"><b>' + esc(t.title) + '</b><small>' + esc(t.channel || '') + '</small></div>'
+      + '<button type="button" class="row-play" data-track="' + esc(tid) + '" data-track-context=\'' + ctx + '\' aria-label="Play">▶</button>'
+      + '</div>';
+  }).join('');
+  box.innerHTML = '<div class="playlist-hero"><div class="cover"><span class="cover-symbol">♫</span><span class="cover-title">' + esc(p.name) + '</span></div>'
+    + '<div><div class="eyebrow">PLAYLIST</div><h1>' + esc(p.name) + '</h1><p>' + tracks.length + ' треков</p>'
+    + (tracks.length ? '<div class="playlist-actions"><button type="button" class="primary" data-playlist-play="' + esc(p.id) + '">▶ Слушать</button></div>' : '')
+    + '</div></div><div class="track-list">' + (rows || empty('В плейлисте нет треков')) + '</div>';
 }
 
 function loadYouTubeApi() {
@@ -286,10 +323,18 @@ async function playTrack(id, contextIds) {
   }
   showView('player');
   await ensurePlayer();
-  if (ytPlayer && apiReady) {
-    ytPlayer.loadVideoById(id);
-    loadedVideoId = id;
-    try { ytPlayer.playVideo(); } catch {}
+  // wait briefly for onReady if needed
+  if (!apiReady) {
+    await new Promise(r => setTimeout(r, 400));
+  }
+  if (ytPlayer) {
+    try {
+      ytPlayer.loadVideoById(id);
+      loadedVideoId = id;
+      ytPlayer.playVideo();
+    } catch (e) {
+      notify(String(e.message || e));
+    }
   }
   try { await apiRequest('/api/history', { method: 'POST', body: JSON.stringify({ videoId: id }) }); } catch {}
   if (!state.recent.includes(id)) state.recent.unshift(id);
@@ -305,10 +350,17 @@ function playNext() {
 }
 
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-view],[data-playlist],[data-track],[data-player-action],[data-action]');
+  const t = e.target.closest('[data-view],[data-playlist],[data-playlist-play],[data-track],[data-player-action],[data-action]');
   if (!t) return;
-  if (t.dataset.view) showView(t.dataset.view);
+  if (t.dataset.view) {
+    if (window.LunaNav) window.LunaNav.showView(t.dataset.view);
+    else showView(t.dataset.view);
+  }
   if (t.dataset.playlist) openPlaylist(t.dataset.playlist);
+  if (t.dataset.playlistPlay) {
+    const pl = state.playlists.find(x => x.id === t.dataset.playlistPlay);
+    if (pl && pl.trackIds && pl.trackIds.length) playTrack(pl.trackIds[0], pl.trackIds);
+  }
   if (t.dataset.track) {
     let ctx = null;
     try { ctx = JSON.parse(t.dataset.trackContext || 'null'); } catch {}
