@@ -1,30 +1,45 @@
-/* Clarity: empty states with actions */
+/* Clarity: empty states with clear actions + mobile nav */
+
 .empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #8a8792;
+  font-size: 13px;
+  border: 1px dashed #35353e;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  line-height: 1.55;
+  min-height: 140px;
 }
+
 .empty-text {
   margin: 0;
   max-width: 280px;
+  color: #9a97a2;
 }
+
 .empty-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
-  margin-top: 4px;
-}
-.empty-actions .primary,
-.empty-actions .secondary {
-  min-height: 40px;
-  padding: 10px 14px;
-  font-size: 12px;
+  margin-top: 6px;
 }
 
-/* Mobile bottom navigation (Telegram-friendly) */
+.empty-actions .primary,
+.empty-actions .secondary {
+  min-height: 42px;
+  padding: 10px 16px;
+  font-size: 12px;
+  border-radius: 10px;
+}
+
+/* Mobile bottom navigation — always visible on phone, Telegram-friendly */
 .mobile-nav {
   display: none;
 }
@@ -36,13 +51,15 @@
     position: fixed;
     left: 0;
     right: 0;
-    bottom: calc(140px + var(--safe-bottom));
+    bottom: calc(140px + var(--safe-bottom, 0px));
     z-index: 15;
     height: 56px;
-    background: rgba(16, 17, 22, 0.96);
-    backdrop-filter: blur(14px);
-    border-top: 1px solid var(--line);
+    background: rgba(16, 17, 22, 0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--line, #2a2b33);
     padding: 0 4px;
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   .mobile-nav-item {
@@ -53,11 +70,12 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    font: 600 10px var(--font);
+    gap: 3px;
+    font: 600 10px var(--font, system-ui, sans-serif);
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
-    transition: color 0.15s;
+    transition: color 0.15s ease;
+    min-height: 48px;
   }
 
   .mobile-nav-item .mobile-nav-icon {
@@ -66,15 +84,19 @@
   }
 
   .mobile-nav-item.active {
-    color: var(--pink-soft);
+    color: var(--pink-soft, #f4a7c8);
+  }
+
+  .mobile-nav-item:active {
+    opacity: 0.75;
   }
 
   .shell {
-    padding-bottom: calc(196px + var(--safe-bottom));
+    padding-bottom: calc(196px + var(--safe-bottom, 0px));
   }
 
   .toast {
-    bottom: calc(208px + var(--safe-bottom));
+    bottom: calc(208px + var(--safe-bottom, 0px));
   }
 
   body.is-player-view .mobile-nav {
@@ -82,14 +104,26 @@
   }
 
   body.is-player-view .shell {
-    padding-bottom: calc(24px + var(--safe-bottom));
+    padding-bottom: calc(24px + var(--safe-bottom, 0px));
   }
 
   body.is-mini-player .mobile-nav {
-    bottom: calc(140px + var(--safe-bottom));
+    bottom: calc(140px + var(--safe-bottom, 0px));
+  }
+
+  .track-row {
+    min-height: 52px;
+  }
+
+  .row-play,
+  .heart {
+    min-width: 36px;
+    min-height: 36px;
   }
 }
 
 @media (min-width: 701px) {
-  .mobile-nav { display: none !important; }
+  .mobile-nav {
+    display: none !important;
+  }
 }
