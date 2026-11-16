@@ -315,7 +315,7 @@ function renderMusicSearch() {
   if (submitButton) submitButton.disabled = musicSearchLoading;
 
   const ids = musicSearchResults.map((track) => track.videoId).filter(Boolean);
-  const rows = trackRows(ids, null, null, null, playlistSelect.value);
+  const rows = trackRows(ids, ids, null, null, playlistSelect.value);
   if (musicSearchLoading) resultsBox.innerHTML = empty(tr("musicSearchLoading"));
   else if (musicSearchState === "error") resultsBox.innerHTML = empty(musicSearchError);
   else if (musicSearchState === "unavailable") resultsBox.innerHTML = empty(tr("musicSearchRequiresApi"));

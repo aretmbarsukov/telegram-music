@@ -1,3 +1,13 @@
+# Handoff — 2026-11-17
+
+## Player width and search playback follow-up
+
+- Capped the full player page at 800px and the mobile bottom-player controls/progress row at 320px; the progress row remains responsive below that limit. The home-page search panel now appears immediately after the hero. Root and `public/` assets are synchronized.
+- Corrected search result queue context so playback uses the found search results as its queue, without marking the queue as a Vibe queue.
+- Browser verification on the local demo at 568×944: the search form was visible, searching “Faded Alan Walker” returned the playable Faded result, clicking play kept `view-player` active while playback ran, and measured player controls/progress row were 320px. The page width was 521px and document scroll width 553px, below the 568px viewport.
+- Demo mock search now marks only Faded as embeddable; this avoids presenting mock-only results that the IFrame player rejects. This is fixture behavior only, not a claim about live YouTube embed availability.
+- No live YouTube credentials were used. Search and playback were exercised against the local demo and YouTube IFrame API; audible output and Telegram WebView behavior were not verified.
+
 # Handoff — 2026-11-16
 
 ## YouTube music search and playlist saving

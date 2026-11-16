@@ -46,6 +46,7 @@ const mockSearchCatalog = [
   { videoId: 'revw0000001', title: 'Album review', channel: 'Luna Demo', thumbnail: null, duration: 'PT4M' },
   { videoId: 'podc0000001', title: 'Music podcast', channel: 'Luna Demo', thumbnail: null, duration: 'PT30M' },
 ];
+const mockEmbeddableSearchVideos = new Set(['60ItHLz5WEA']);
 
 function mockPlaylistItems(id: string): YouTubeTrack[] {
   return mockVideos.map((video, index) => ({ sourceItemId: `mock-${id}-${index + 1}`, videoId: video.videoId, title: video.title, channel: video.channel, thumbnail: video.thumbnail, duration: video.duration, availability: 'AVAILABLE' }));
@@ -132,7 +133,7 @@ export async function getVideos(ids: string[]) {
   if (config.YOUTUBE_MOCK_MODE) return ids.map(id => {
     const known = mockVideos.find(video => video.videoId === id);
     const searchResult = mockSearchCatalog.find(video => video.videoId === id);
-    return known ?? (searchResult ? { ...searchResult, embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' } : { videoId: id, title: `Demo track ${id}`, channel: 'Luna Demo', thumbnail: null, duration: 'PT3M30S', embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' });
+    return known ?? (searchResult ? { ...searchResult, embeddable: mockEmbeddableSearchVideos.has(id), privacyStatus: 'public', liveBroadcastContent: 'none' } : { videoId: id, title: `Demo track ${id}`, channel: 'Luna Demo', thumbnail: null, duration: 'PT3M30S', embeddable: false, privacyStatus: 'public', liveBroadcastContent: 'none' });
   });
   const result = await request<VideosResponse>('videos', { part: 'snippet,contentDetails,status', id: ids.join(','), maxResults: '50' });
   return (result.items ?? []).map(item => ({
