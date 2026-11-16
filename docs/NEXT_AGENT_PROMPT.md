@@ -9,7 +9,7 @@ Continue the Telegram Music project in this checkout. Read `AGENTS.md`, `README.
 - “Мой вайб” / “Мій вайб” is implemented in `src/vibe.ts` and exposed as `GET /api/vibe`, bot `/vibe`, and a Mini App view (`?view=vibe`). It ranks the user's favourites/history/playlists and uses official `search.list` discovery for up to two favourite channels, cached 10 minutes per user, with a library-only fallback and notice. Favourite changes invalidate the cache.
 - `minimal.css` replaces the previous yellow/gradient theme. Only French keeps the dedication text; `ru`/`uk` translations are empty.
 - Latest checks: lint, typecheck, build, and tests (55/55) pass. Browser checks at 1296px confirmed the vibe page, pills, reasons, and playing a 3-item vibe queue with no console errors. No real Telegram/YouTube credentials were available, so live bot, import, and playback remain unverified.
-- Git `2.56.0` is installed. The checkout was initialized and reset to `origin/main` (`f464bfe`); the feature work was committed and pushed to `main` (commit hash in the top handoff section).
+- Git `2.56.0` is installed. The checkout was initialized and reset to `origin/main` (`f464bfe`); the feature work was committed as `900c92c` and pushed to `origin/main` on 2026-11-16.
 - Locked-screen playback is only possible through the official YouTube app (YouTube Music link / `watch_videos` link) and requires Premium. Do not add media downloading or extraction.
 
 ## Goal
