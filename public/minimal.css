@@ -650,3 +650,123 @@ body.is-mini-player #view-player .mini-player-open {
     width: 100%;
   }
 }
+
+/* Keep the official YouTube iframe interactive. The old click-blocking
+   overlay and `pointer-events: none` made the player's own controls dead. */
+.player-stage::after {
+  display: none;
+}
+
+.youtube-player {
+  pointer-events: auto !important;
+}
+
+@media (max-width: 700px) {
+  /* Finger-sized transport controls; the phone bar was 23-34 px per button. */
+  .player-bar {
+    height: 152px !important;
+    grid-template-rows: 58px 74px;
+    padding-bottom: 8px !important;
+  }
+
+  .player-controls .control {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .player-controls .control-row {
+    gap: 10px;
+  }
+
+  .player-controls .play-toggle {
+    width: 44px;
+    height: 44px;
+  }
+
+  .player-controls .progress-row {
+    margin-top: 4px;
+  }
+
+  .player-bar #now-fav {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* styles.css collapsed the queue button to 12x2 px. Restore a real target
+     and hide only its text label, keeping it available to screen readers. */
+  .queue-button,
+  .queue-button span {
+    font-size: 15px;
+  }
+
+  .queue-button {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .queue-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Let the end of every view scroll clear of the fixed player bar and nav. */
+  .shell,
+  body.is-player-view .shell {
+    padding-bottom: calc(240px + var(--safe-bottom, 0px));
+  }
+
+  .row-play,
+  .heart {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .back-button {
+    min-height: 36px;
+    padding: 0 8px 0 0;
+    margin-left: -8px;
+  }
+
+  .lang-switch button {
+    min-width: 40px;
+    min-height: 36px;
+  }
+
+  .text-button {
+    min-height: 40px;
+    padding: 8px 0;
+  }
+
+  .youtube-app-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+  }
+
+  .progress {
+    padding: 16px 0;
+    margin: -16px 0;
+  }
+
+  .playlist-actions button,
+  .stage-controls button {
+    min-height: 44px;
+  }
+
+  .toast {
+    bottom: calc(224px + var(--safe-bottom, 0px));
+  }
+}

@@ -21,3 +21,18 @@ test('player renderer only addresses elements present in the served HTML', async
     }
   }
 });
+
+test('mobile player styles keep tappable controls and a scrollable page', async () => {
+  const [minimal, publicMinimal] = await Promise.all([
+    readFile('minimal.css', 'utf8'),
+    readFile('public/minimal.css', 'utf8'),
+  ]);
+  assert.equal(publicMinimal, minimal, 'root and served CSS must stay synchronized');
+  // The queue button used to collapse to 12x2 px because of `font-size: 0`.
+  assert.match(minimal, /\.queue-button\s*\{[^}]*min-height:\s*44px/s);
+  // The transparent overlay and `pointer-events: none` made YouTube's own controls dead.
+  assert.match(minimal, /\.player-stage::after\s*\{[^}]*display:\s*none/s);
+  assert.match(minimal, /\.youtube-player\s*\{[^}]*pointer-events:\s*auto\s*!important/s);
+  // The player view must scroll clear of the fixed bar, which sits above the mobile nav.
+  assert.match(minimal, /body\.is-player-view \.shell\s*\{[^}]*padding-bottom:\s*calc\(240px/s);
+});
