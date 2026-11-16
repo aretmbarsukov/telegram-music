@@ -5,7 +5,16 @@ import type { Update } from 'grammy/types';
 import { createMusicBot, configureMenuButton } from './bot.js';
 
 const ownerId = 7654321;
-const playlist = { id: 'playlist-1', title: 'Road trip', _count: { items: 4 }, youtube: { id: 'source-1', cachedTitle: 'Remote playlist', status: 'SUCCESS', lastSuccessAt: new Date('2026-01-01T00:00:00Z') } };
+const playlist = {
+  id: 'playlist-1',
+  title: 'Road trip',
+  _count: { items: 4 },
+  youtube: { id: 'source-1', cachedTitle: 'Remote playlist', status: 'SUCCESS', lastSuccessAt: new Date('2026-01-01T00:00:00Z') },
+  items: [
+    { customTitle: null, track: { youtubeVideoId: 'AAAA0000001' } },
+    { customTitle: 'My local title', track: { youtubeVideoId: 'BBBB0000002' } },
+  ],
+};
 
 function setup() {
   const calls: { method: string; payload: Record<string, unknown> }[] = [];
@@ -30,7 +39,23 @@ function setup() {
     },
     youTubeSource: {
       findMany: async () => [{ id: 'source-1' }],
+      findFirst: async () => ({ id: 'source-1' }),
       updateMany: async (args: unknown) => { state.sourceUpdates.push(args); return { count: 1 }; },
+    },
+    youTubeMetadata: {
+      findMany: async () => [
+        { videoId: 'AAAA0000001', title: 'Remote title', channelTitle: 'Channel', duration: 'PT3M32S', status: 'FRESH' },
+        { videoId: 'BBBB0000002', title: 'Ignored title', channelTitle: null, duration: null, status: 'UNAVAILABLE' },
+      ],
+    },
+    favorite: {
+      findMany: async () => [{ track: { youtubeVideoId: 'AAAA0000001' } }],
+    },
+    playbackHistory: {
+      findMany: async () => [],
+    },
+    playlistItem: {
+      findMany: async () => [],
     },
   } as unknown as PrismaClient;
   const notifications: unknown[] = [];
@@ -44,6 +69,7 @@ function setup() {
   bot.api.config.use((async (_previous: unknown, method: string, payload: unknown) => {
     calls.push({ method, payload: payload as Record<string, unknown> });
     if (method === 'sendMessage') return { ok: true, result: { message_id: calls.length, date: 1_800_000_000, chat: { id: ownerId, type: 'private', first_name: 'Mira' }, text: String((payload as { text?: string }).text ?? '') } } as never;
+    if (method === 'sendDocument') return { ok: true, result: { message_id: calls.length, date: 1_800_000_000, chat: { id: ownerId, type: 'private', first_name: 'Mira' }, document: { file_id: 'file-1', file_unique_id: 'unique-1' }, caption: (payload as { caption?: string }).caption } } as never;
     return { ok: true, result: true } as never;
   }) as never);
   return { bot, calls, state, notifications };
@@ -71,6 +97,18 @@ test('registers users and replies to start, help, app, and add with an HTTPS Min
   assert.equal(keyboard.inline_keyboard[0]![0]!.web_app?.url, 'https://music.example.test');
 });
 
+test('replies to /vibe with a personal selection and a Mini App button', async () => {
+  const { bot, calls } = setup();
+  await handle(bot, messageUpdate('/vibe'));
+  const message = calls.filter(call => call.method === 'sendMessage').at(-1)!;
+  assert.match(String(message.payload.text), /Мій вайб/);
+  assert.match(String(message.payload.text), /https:\/\/www\.youtube\.com\/watch\?v=AAAA0000001/);
+  const keyboard = message.payload.reply_markup as { inline_keyboard: { text: string; web_app?: { url: string }; url?: string }[][] };
+  assert.equal(keyboard.inline_keyboard[0]![0]!.text, '▶️ Увімкнути вайб');
+  assert.equal(keyboard.inline_keyboard[0]![0]!.web_app?.url, 'https://music.example.test/?view=vibe');
+  assert.equal(keyboard.inline_keyboard[1]![0]!.text, '🔄 Оновити добірку');
+});
+
 test('configures Telegram chat menu as the HTTPS Mini App', async () => {
   const { bot, calls } = setup();
   await configureMenuButton(bot, 'https://music.example.test');
@@ -91,6 +129,38 @@ test('shows user-scoped playlists as inline buttons and handles playlist selecti
   await bot.handleUpdate(callbackUpdate('playlist:playlist-1'));
   assert.equal(calls.some(call => call.method === 'sendMessage' && String(call.payload.text).includes('Road trip')) , true);
   await bot.handleUpdate(callbackUpdate('playlist:playlist-1', ownerId + 1));
+  assert.equal(calls.some(call => call.method === 'answerCallbackQuery' && call.payload.text === 'Плейлист не знайдено'), true);
+});
+
+test('playlist detail offers one-button listening, M3U download, and sync', async () => {
+  const { bot, calls, notifications } = setup();
+  await handle(bot, messageUpdate('/playlists'));
+  await bot.handleUpdate(callbackUpdate('playlist:playlist-1'));
+
+  const detail = calls.filter(call => call.method === 'sendMessage').at(-1)!;
+  const markup = detail.payload.reply_markup as { inline_keyboard: { text: string; callback_data?: string; url?: string; web_app?: { url: string } }[][] };
+  assert.equal(markup.inline_keyboard[0]![0]!.text, '▶️ Слухати все');
+  assert.equal(markup.inline_keyboard[0]![0]!.web_app?.url, 'https://music.example.test/?play=playlist-1');
+  assert.equal(markup.inline_keyboard[1]![0]!.text, '🎧 Слухати у фоні');
+  assert.equal(markup.inline_keyboard[1]![0]!.url, 'https://music.youtube.com/playlist?list=source-1');
+  assert.equal(markup.inline_keyboard[2]![0]!.callback_data, 'playlist:m3u:playlist-1');
+  assert.equal(markup.inline_keyboard[3]![0]!.callback_data, 'playlist:sync:playlist-1');
+
+  await bot.handleUpdate(callbackUpdate('playlist:m3u:playlist-1'));
+  const document = calls.find(call => call.method === 'sendDocument');
+  assert.ok(document);
+  assert.match(String(document.payload.caption), /2 треків/);
+
+  await bot.handleUpdate(callbackUpdate('playlist:sync:playlist-1'));
+  assert.equal(notifications.length, 1);
+  assert.equal(calls.some(call => call.method === 'sendMessage' && String(call.payload.text).includes('Синхронізацію завершено')), true);
+});
+
+test('playlist menu returns to the list and reports missing playlists', async () => {
+  const { bot, calls } = setup();
+  await bot.handleUpdate(callbackUpdate('playlist:list'));
+  assert.equal(calls.some(call => call.method === 'sendMessage' && String(call.payload.text).includes('Обери плейлист')), true);
+  await bot.handleUpdate(callbackUpdate('playlist:m3u:missing', ownerId + 1));
   assert.equal(calls.some(call => call.method === 'answerCallbackQuery' && call.payload.text === 'Плейлист не знайдено'), true);
 });
 

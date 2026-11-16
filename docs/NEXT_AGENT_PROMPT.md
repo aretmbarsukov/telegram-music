@@ -2,6 +2,16 @@
 
 Continue the Telegram Music project in this checkout. Read `AGENTS.md`, `README.md`, `docs/HANDOFF.md`, and this file, then inspect the actual code and current status before changing it. Preserve the browser prototype; its source is in the project root and the served copy is in `public/`.
 
+## Latest state (2026-11-16)
+
+- Frontend was restored from commit `abfbd89`; root files are canonical and `scripts/copy-assets.mjs` syncs them to `public/` during build. `nav.js` was removed.
+- Playlist export is implemented in `src/playlist-export.ts` and covered by `src/playlist-export.test.ts`. The bot offers listen-all, background listening, `.m3u` export, and sync. The Mini App has the same background-listening action.
+- “Мой вайб” / “Мій вайб” is implemented in `src/vibe.ts` and exposed as `GET /api/vibe`, bot `/vibe`, and a Mini App view (`?view=vibe`). It ranks the user's favourites/history/playlists and uses official `search.list` discovery for up to two favourite channels, cached 10 minutes per user, with a library-only fallback and notice. Favourite changes invalidate the cache.
+- `minimal.css` replaces the previous yellow/gradient theme. Only French keeps the dedication text; `ru`/`uk` translations are empty.
+- Latest checks: lint, typecheck, build, and tests (55/55) pass. Browser checks at 1296px confirmed the vibe page, pills, reasons, and playing a 3-item vibe queue with no console errors. No real Telegram/YouTube credentials were available, so live bot, import, and playback remain unverified.
+- Git `2.56.0` is installed. The checkout was initialized and reset to `origin/main` (`f464bfe`); the feature work was committed and pushed to `main` (commit hash in the top handoff section).
+- Locked-screen playback is only possible through the official YouTube app (YouTube Music link / `watch_videos` link) and requires Premium. Do not add media downloading or extraction.
+
 ## Goal
 
 Deliver a Telegram bot and Mini App for private, user-isolated music libraries backed by PostgreSQL. Support public YouTube playlist import, one-way 30-minute/manual sync, local additions that survive sync, and playback only through the official YouTube iframe. Never scrape/download/extract audio, write to YouTube, bypass ads, or put secrets in browser code.
@@ -30,7 +40,7 @@ On 2026-11-08: playlist CRUD/import/add/sync frontend flows are connected to the
 3. Ask the owner to configure a free UptimeRobot HTTP monitor (or cron-job.org GET) for `https://telegram-music-mhem.onrender.com/health` every 5 minutes. This may reduce Render Free spin-down but cannot guarantee uptime; see `docs/DEPLOYMENT.md`.
 4. Do not inspect, output, log, or commit secrets. A prior tool output displayed credential values and the owner chose to continue without rotating them. Respect that decision, keep all future checks value-free, and do not introduce secret exposure in logs/docs/screenshots.
 5. Native PostgreSQL migration and integration checks are complete on Neon PostgreSQL 17. If PostgreSQL 16 compatibility is specifically required, use a separate disposable instance; never reset existing data. Add metadata restoration coverage by stable video ID.
-6. Persist favorites through the API; add account data deletion with explicit semantics; test unavailable YouTube retries and concurrent worker/manual sync; finish privacy policy and production operational review.
+6. Favorites REST persistence and the vibe feature are implemented and tested. Next: add account data deletion with explicit semantics; test unavailable YouTube retries and concurrent worker/manual sync; verify `/vibe` and real discover in Telegram with a real bot token and YouTube API key; finish privacy policy and production operational review.
 
 ## Commands
 

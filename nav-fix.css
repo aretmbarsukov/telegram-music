@@ -1,0 +1,19 @@
+/* Ensure bottom nav is tappable above player bar */
+.mobile-nav {
+  pointer-events: auto !important;
+  z-index: 40 !important;
+}
+.mobile-nav-item {
+  pointer-events: auto !important;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.player-bar {
+  z-index: 20 !important;
+  pointer-events: auto;
+}
+/* Do not let full-screen overlays steal nav taps */
+.mobile-nav * {
+  pointer-events: auto !important;
+}

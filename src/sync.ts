@@ -28,7 +28,7 @@ export async function syncYouTubeSource(db: PrismaClient, sourceId: string) {
     const [remotePlaylist, remoteItems] = await Promise.all([getPlaylist(source.youtubeId), getPlaylistItems(source.youtubeId)]);
     const valid = remoteItems.filter((item): item is typeof item & { videoId: string } => Boolean(item.videoId));
     const unique = [...new Map(valid.map(item => [item.videoId, item])).values()];
-    const before = await db.playlistItem.findMany({ where: { playlistId: source.playlistId, origin: 'YOUTUBE_SYNC' }, select: { track: { select: { youtubeVideoId: true } }, position: true } });
+    const before = await db.playlistItem.findMany({ where: { playlistId: source.playlistId, origin: 'YOUTUBE_SYNC' }, select: { track: { select: { youtubeVideoId: true } }, position: true }, orderBy: { position: 'asc' } });
     const localsBefore = await db.playlistItem.findMany({ where: { playlistId: source.playlistId, origin: 'LOCAL' }, select: { id: true, trackId: true, position: true, track: { select: { youtubeVideoId: true } } }, orderBy: { position: 'asc' } });
     const beforeIds = before.map(item => item.track.youtubeVideoId);
     const newIds = unique.map(item => item.videoId);
@@ -54,6 +54,7 @@ export async function syncYouTubeSource(db: PrismaClient, sourceId: string) {
       const locals = await tx.playlistItem.findMany({ where: { playlistId: source.playlistId, origin: 'LOCAL' }, orderBy: { position: 'asc' }, select: { id: true } });
       for (const [index, item] of locals.entries()) await tx.playlistItem.update({ where: { id: item.id }, data: { position: syncedItems.length + index } });
       await tx.youTubeSource.update({ where: { id: source.id }, data: { status: 'SUCCESS', cachedTitle: remotePlaylist.title, cachedThumbnailUrl: remotePlaylist.thumbnail, metadataStatus: 'FRESH', metadataAt: now, metadataRetryAt: null, lastSuccessAt: now, lastAttemptAt: now, nextSyncAt: new Date(now.getTime() + source.intervalMins * 60_000), lastError: null } });
+      await tx.playlist.update({ where: { id: source.playlistId }, data: { updatedAt: now } });
       await tx.syncHistory.update({ where: { id: history.id }, data: { status: 'SUCCESS', finishedAt: new Date(), added: summary.added, removed: summary.removed, reordered: summary.reordered ? 1 : 0 } });
     });
     return { ...summary, addedTracks, unavailable: remoteItems.filter(item => !item.videoId || item.availability !== 'AVAILABLE').length, total: unique.length, syncedAt: now };

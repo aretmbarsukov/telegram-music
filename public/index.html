@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0a0a0a"><title>Луна — твоя музыкальная библиотека</title>
-  <link rel="preconnect" href="https://www.youtube.com"><link rel="stylesheet" href="styles.css?v=pl-fix-2"><link rel="stylesheet" href="api-states.css"><link rel="stylesheet" href="clarity.css?v=pl-fix-2"><link rel="stylesheet" href="nav-fix.css?v=pl-fix-2">
+  <meta name="theme-color" content="#0b0b0c"><title>Луна — твоя музыкальная библиотека</title>
+  <link rel="preconnect" href="https://www.youtube.com"><link rel="stylesheet" href="styles.css?v=20261116-4"><link rel="stylesheet" href="api-states.css"><link rel="stylesheet" href="clarity.css?v=20261116-4"><link rel="stylesheet" href="nav-fix.css?v=20261116-4">
   <style>
     .lang-switch{display:inline-flex;gap:4px;align-items:center;margin-right:8px}
     .lang-switch button{border:1px solid #333;background:#141414;color:#9a9a9a;font:600 10px system-ui,sans-serif;padding:5px 8px;border-radius:8px;cursor:pointer;letter-spacing:.3px;min-height:28px}
@@ -16,18 +16,20 @@
       .brand-dedication{padding-left:0;margin-top:4px}
     }
   </style>
+  <link rel="stylesheet" href="minimal.css?v=20261116-6">
 </head>
 <body>
   <div class="shell">
     <aside class="sidebar">
       <a class="brand" href="#home"><span class="brand-mark">♫</span><span>luna<span class="brand-dot">.</span></span></a>
-      <div class="brand-dedication" data-i18n="forMuhammad">(специально для Мухаммада)</div>
+      <div class="brand-dedication" data-i18n="forMuhammad"></div>
       <div class="side-label" data-i18n="menu">МЕНЮ</div>
       <nav class="nav">
         <button class="nav-item active" data-view="home"><span>⌂</span> <span data-i18n="home">Главная</span></button>
         <button class="nav-item" data-view="library"><span>▤</span> <span data-i18n="library">Библиотека</span></button>
         <button class="nav-item" data-view="favorites"><span>♡</span> <span data-i18n="favorites">Избранное</span></button>
         <button class="nav-item" data-view="recent"><span>◷</span> <span data-i18n="recent">Недавние</span></button>
+        <button class="nav-item" data-view="vibe"><span>✦</span> <span data-i18n="vibe">Мой вайб</span></button>
       </nav>
       <div class="side-label collection-label"><span data-i18n="playlists">ПЛЕЙЛИСТЫ</span> <button id="side-add" class="icon-button" data-i18n-aria="createPlaylist" aria-label="Создать плейлист">＋</button></div>
       <div id="side-playlists" class="side-playlists"></div>
@@ -47,13 +49,13 @@
           <button class="avatar small" aria-hidden="true">♫</button>
         </div>
       </header>
-      <div id="connection-banner" class="connection-banner" role="status" aria-live="polite" hidden><span></span><button type="button" onclick="window.location.reload()" data-i18n="tryAgain">Попробовать ещё</button></div>
+      <div id="connection-banner" class="connection-banner" role="status" aria-live="polite" hidden><span></span><button type="button" data-action="reload" data-i18n="tryAgain">Попробовать ещё</button></div>
       <section id="view-home" class="view active">
         <div class="hero"><div class="hero-copy">
           <div class="eyebrow" data-i18n="yourMusic">ТВОЯ МУЗЫКА</div>
           <h1><span data-i18n="heroTitle">Найди свой</span><br><em data-i18n="heroTitleEm">ритм.</em></h1>
           <p data-i18n="heroCopy">Собирай плейлисты с YouTube и слушай в Telegram.</p>
-          <p class="brand-dedication" style="padding-left:0;margin:0 0 12px;color:#9a9a9a" data-i18n="forMuhammad">(специально для Мухаммада)</p>
+          <p class="brand-dedication hero-dedication" data-i18n="forMuhammad"></p>
           <button id="hero-play" class="primary"><span>▶</span> <span data-i18n="listenNow">Слушать сейчас</span></button>
         </div><div class="hero-art"><div class="orb orb-one"></div><div class="orb orb-two"></div><div class="hero-note">♫</div><div class="equalizer"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><div class="hero-index">01 <span>—</span> 04</div></div>
         <div class="quick-grid">
@@ -68,6 +70,7 @@
       <section id="view-library" class="view"><div class="page-head"><div><div class="eyebrow" data-i18n="collection">КОЛЛЕКЦИЯ</div><h1 data-i18n="libraryTitle">Библиотека</h1><p data-i18n="libraryCopy">Все твои плейлисты.</p></div><button id="create-button" class="primary">＋ <span data-i18n="create">Создать</span></button></div><div class="toolbar"><label class="search"><span>⌕</span><input id="search" data-i18n="searchPlaylist" placeholder="Поиск плейлиста"></label><select id="sort"><option value="updated" data-i18n="sortRecent">Недавние</option><option value="name" data-i18n="sortName">По названию</option><option value="count" data-i18n="sortCount">По количеству</option></select></div><div id="library-playlists" class="playlist-grid"></div></section>
       <section id="view-favorites" class="view"><div class="page-head"><div><div class="eyebrow" data-i18n="chosen">ИЗБРАННОЕ</div><h1 data-i18n="favoritesTitle">Избранное</h1><p data-i18n="favoritesCopy">Треки, которые ты отметил ♡</p></div></div><div id="favorite-tracks" class="track-list"></div></section>
       <section id="view-recent" class="view"><div class="page-head"><div><div class="eyebrow" data-i18n="history">ИСТОРИЯ</div><h1 data-i18n="recentTitle">Недавние</h1><p data-i18n="recentCopy">То, что ты слушал в последнее время.</p></div></div><div id="recent-tracks" class="track-list"></div></section>
+      <section id="view-vibe" class="view"><div class="page-head"><div><div class="eyebrow" data-i18n="vibeEyebrow">ПЕРСОНАЛЬНО</div><h1 data-i18n="vibeTitle">Мой вайб</h1><p data-i18n="vibeCopy">Подборка на основе любимых треков, истории и похожих каналов.</p></div><button class="secondary" type="button" data-vibe-refresh aria-label="Обновить"><span data-i18n="vibeRefresh">Обновить</span></button></div><div id="vibe-summary" class="vibe-summary"></div><div class="vibe-actions"><button class="primary" type="button" data-vibe-play>▶ <span data-i18n="vibePlay">Включить вайб</span></button></div><div id="vibe-tracks" class="track-list vibe-tracks"></div></section>
       <section id="view-playlist" class="view"><button class="back-button" data-view="library" data-i18n="backToLibrary">← К библиотеке</button><div id="playlist-detail"></div></section>
       <section id="view-player" class="view"><button class="back-button" data-view="home" data-i18n="back">← Назад</button><div class="player-page"><div class="eyebrow" data-i18n="nowPlaying">СЕЙЧАС ИГРАЕТ</div><h1 data-i18n="player">Плеер</h1><p data-i18n="playerCopy">Видео только для просмотра. Управляй воспроизведением нижним плеером.</p><div id="player-stage" class="player-stage"><div id="youtube-player" class="youtube-player"></div></div><div class="player-track-title" id="player-track-title" data-i18n="pickTrack">Выбери композицию</div><div id="player-track-channel" class="player-track-channel">YouTube</div><button class="secondary mini-player-open" data-view="player" data-i18n="openFullPlayer">Открыть полный плеер</button><p id="playback-message" class="playback-message" role="status" aria-live="polite"></p><div class="stage-controls"><button class="secondary" data-player-action="shuffle" data-i18n-aria="shuffle" aria-label="Перемешать">⤨ <span data-i18n="shuffle">Перемешать</span></button><button class="secondary" data-player-action="previous" data-i18n-aria="previous" aria-label="Предыдущий">|◀ <span data-i18n="previous">Предыдущий</span></button><button class="primary" data-player-action="toggle" data-i18n-aria="play" aria-label="Воспроизвести">▶ <span data-i18n="play">Воспроизвести</span></button><button class="secondary" data-player-action="next" data-i18n-aria="next" aria-label="Следующий"><span data-i18n="next">Следующий</span> ▶|</button><button class="secondary" data-player-action="repeat" data-i18n-aria="repeatOff" aria-label="Повтор">↻ <span data-i18n="repeatOff">Повтор: выкл.</span></button><button class="secondary" data-player-action="volume" data-i18n-aria="volume" aria-label="Звук">◖ <span data-i18n="volume">Звук</span></button><button id="stage-favorite" class="secondary" data-player-action="favorite">♡ <span data-i18n="addToFav">В избранное</span></button><button class="secondary" data-player-action="add-playlist">＋ <span data-i18n="addToPlaylist">Добавить в плейлист</span></button></div><div class="youtube-app-links"><a id="youtube-original" class="youtube-original" target="_blank" rel="noopener noreferrer" hidden data-i18n="openYoutube">Открыть в YouTube ↗</a><a id="youtube-music" class="youtube-original" target="_blank" rel="noopener noreferrer" hidden data-i18n="openYoutubeMusic">Открыть в YouTube Music ↗</a></div><p class="premium-hint" data-i18n="premiumHint">Чтобы слушать в фоне (с заблокированным экраном) — открой трек в YouTube или YouTube Music. В мини-приложении фон не поддерживается.</p><div class="queue-panel"><h2 data-i18n="queue">Очередь</h2><div id="queue-list"></div></div></div></section>
     </main>
@@ -76,15 +79,15 @@
       <button type="button" class="mobile-nav-item" data-view="library"><span class="mobile-nav-icon">▤</span><span data-i18n="library">Библиотека</span></button>
       <button type="button" class="mobile-nav-item" data-view="favorites"><span class="mobile-nav-icon">♡</span><span data-i18n="favorites">Избранное</span></button>
       <button type="button" class="mobile-nav-item" data-view="recent"><span class="mobile-nav-icon">◷</span><span data-i18n="recent">Недавние</span></button>
+      <button type="button" class="mobile-nav-item" data-view="vibe"><span class="mobile-nav-icon">✦</span><span data-i18n="vibe">Вайб</span></button>
     </nav>
     <footer class="player-bar"><div id="now-playing" class="now-playing"><div class="mini-cover">♫</div><div class="now-meta"><b data-i18n="pickATrack">Выбери трек</b><small data-i18n="pressPlay">Нажми ▶ рядом с композицией</small></div><button id="now-fav" class="heart" data-i18n-aria="addToFavorites" aria-label="Добавить в избранное">♡</button></div><div class="player-controls"><div class="control-row"><button id="shuffle" class="control" data-i18n-aria="shuffle" aria-label="Перемешать" data-player-action="shuffle">⤨</button><button id="previous" class="control" data-i18n-aria="previous" aria-label="Предыдущий" data-player-action="previous">|◀</button><button id="player-toggle" class="play-toggle" data-i18n-aria="play" aria-label="Воспроизвести" data-player-action="toggle">▶</button><button id="next" class="control" data-i18n-aria="next" aria-label="Следующий" data-player-action="next">▶|</button><button id="repeat" class="control" data-i18n-aria="repeatOff" aria-label="Повтор" data-player-action="repeat">↻</button></div><div class="progress-row"><span id="current-time">0:00</span><div class="progress" role="slider" data-i18n-aria="seek" aria-label="Перемотка трека" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" tabindex="0"><i id="progress-fill"></i></div><span id="duration">0:00</span></div></div><div class="player-right"><button id="queue-toggle" class="control queue-button">☷ <span data-i18n="queue">Очередь</span></button><button id="volume-toggle" class="control volume" data-player-action="volume" data-i18n-aria="volume" aria-label="Звук">◖</button></div></footer>
   </div>
   <dialog id="modal"><form method="dialog" id="modal-form"><button class="modal-close" value="cancel" data-i18n-aria="close" aria-label="Закрыть">×</button><div id="modal-content"></div></form></dialog>
   <div id="toast" class="toast" role="status"></div>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="i18n.js?v=pl-fix-2"></script>
-  <script src="nav.js?v=pl-fix-2"></script>
-  <script type="module" src="app.js?v=pl-fix-2"></script>
-  <script src="seek-bar.js?v=pl-fix-2" defer></script>
+  <script src="i18n.js?v=20261116-6"></script>
+  <script type="module" src="app.js?v=20261116-6"></script>
+  <script src="seek-bar.js?v=20261116-4" defer></script>
 </body>
 </html>

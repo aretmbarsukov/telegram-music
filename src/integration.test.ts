@@ -91,6 +91,7 @@ before(async () => {
       if (ids.includes(previewVideo)) return Response.json({ items: [{ id: previewVideo, snippet: { title: 'Verified thumbnail fixture', channelTitle: 'YouTube Developers', thumbnails: { high: { url: previewThumbnail } } }, contentDetails: { duration: 'PT2M30S' } }] });
       throw new Error('Mocked YouTube Data API transport failure');
     }
+    if (url.pathname.endsWith('/search')) return Response.json({ items: [] });
     throw new Error(`Unexpected YouTube API endpoint: ${url.pathname}`);
   }) as typeof fetch;
 });
@@ -165,6 +166,32 @@ test('persists favorites per owner and returns cached display metadata', async (
   assert.equal(empty.json().some((favorite: { videoId: string }) => favorite.videoId === previewVideo), false);
 });
 
+test('returns a personalized vibe from liked tracks and isolates owners', async () => {
+  const headers = { 'x-dev-user-id': '100000001' };
+  const database = (await import('./database.js')).getDatabase();
+  const user = await database.user.findUnique({ where: { telegramId: 100000001n }, select: { id: true } });
+  assert.ok(user);
+  const vibeVideoIds = ['VIBE0000001', 'VIBE0000002'];
+  for (const [index, videoId] of vibeVideoIds.entries()) {
+    const track = await database.track.upsert({ where: { youtubeVideoId: videoId }, create: { youtubeVideoId: videoId }, update: {}, select: { id: true } });
+    await database.favorite.create({ data: { userId: user.id, trackId: track.id } });
+    await database.youTubeMetadata.upsert({
+      where: { videoId },
+      create: { videoId, title: `Vibe fixture ${index + 1}`, channelTitle: 'Vibe Channel', duration: 'PT3M20S', status: 'FRESH', refreshedAt: new Date(), lastAttemptAt: new Date() },
+      update: { title: `Vibe fixture ${index + 1}`, channelTitle: 'Vibe Channel', duration: 'PT3M20S', status: 'FRESH' },
+    });
+  }
+  const result = await app.inject({ method: 'GET', url: '/api/vibe', headers });
+  assert.equal(result.statusCode, 200, result.body);
+  assert.ok(result.json().tracks.length >= 1);
+  assert.ok(result.json().seeds.favorites >= 1);
+  assert.ok(result.json().tracks.every((track: { videoId: string; reason: string }) => /^[\w-]{11}$/.test(track.videoId) && track.reason));
+  const refreshed = await app.inject({ method: 'GET', url: '/api/vibe?refresh=1', headers });
+  assert.equal(refreshed.statusCode, 200, refreshed.body);
+  const otherUser = await app.inject({ method: 'GET', url: '/api/vibe', headers: { authorization: telegramAuth(200000002) } });
+  assert.deepEqual(otherUser.json().tracks, []);
+});
+
 test('expires old YouTube cache without deleting playlists, local tracks, favorites, or playback history', async () => {
   const database = (await import('./database.js')).getDatabase();
   const user = await database.user.create({ data: { telegramId: BigInt(Date.now()) * 100_000n + 300000003n, firstName: 'Cache cleanup owner' } });
@@ -227,6 +254,29 @@ test('playlist API supports create, rename, listing and delete', async () => {
   assert.equal(deleted.statusCode, 204);
   const missing = await app.inject({ method: 'GET', url: `/api/playlists/${id}`, headers });
   assert.equal(missing.statusCode, 404);
+});
+
+test('deleting a playlist item closes the position gap and keeps item identifiers', async () => {
+  const headers = { 'x-dev-user-id': '100000001' };
+  const created = await app.inject({ method: 'POST', url: '/api/playlists', headers, payload: { name: 'Ordering test playlist' } });
+  assert.equal(created.statusCode, 201);
+  const id = created.json().id as string;
+  for (const videoId of ['DEL00000001', 'DEL00000002', 'DEL00000003']) {
+    const added = await app.inject({ method: 'POST', url: `/api/playlists/${id}/tracks`, headers, payload: { videoId } });
+    assert.equal(added.statusCode, 201, added.body);
+  }
+  const before = await app.inject({ method: 'GET', url: `/api/playlists/${id}`, headers });
+  assert.deepEqual(before.json().items.map((item: { track: { id: string } }) => item.track.id), ['DEL00000001', 'DEL00000002', 'DEL00000003']);
+  assert.ok(before.json().items.every((item: { id: string; itemId: string }) => item.itemId === item.id));
+  const middle = before.json().items[1] as { itemId: string };
+  const removed = await app.inject({ method: 'DELETE', url: `/api/playlists/${id}/tracks/${middle.itemId}`, headers });
+  assert.equal(removed.statusCode, 204);
+  const after = await app.inject({ method: 'GET', url: `/api/playlists/${id}`, headers });
+  assert.deepEqual(after.json().items.map((item: { track: { id: string } }) => item.track.id), ['DEL00000001', 'DEL00000003']);
+  assert.deepEqual(after.json().items.map((item: { position: number }) => item.position), [0, 1]);
+  const database = (await import('./database.js')).getDatabase();
+  const playlistRow = await database.playlist.findUnique({ where: { id }, select: { updatedAt: true } });
+  assert.ok(playlistRow?.updatedAt);
 });
 
 test('playback history is written and read only for the authenticated user', async () => {

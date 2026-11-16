@@ -7,8 +7,8 @@ export async function upsertYouTubeMetadata(tx: CacheWriter, item: YouTubeTrack,
   if (!item.videoId) return;
   await tx.youTubeMetadata.upsert({
     where: { videoId: item.videoId },
-    create: { videoId: item.videoId, title: item.availability === 'AVAILABLE' ? item.title : null, channelTitle: item.availability === 'AVAILABLE' ? item.channel : null, thumbnailUrl: item.availability === 'AVAILABLE' ? item.thumbnail : null, status: item.availability === 'AVAILABLE' ? 'FRESH' : 'UNAVAILABLE', refreshedAt: now, lastAttemptAt: now },
-    update: { title: item.availability === 'AVAILABLE' ? item.title : null, channelTitle: item.availability === 'AVAILABLE' ? item.channel : null, thumbnailUrl: item.availability === 'AVAILABLE' ? item.thumbnail : null, ...(item.availability !== 'AVAILABLE' ? { duration: null } : {}), status: item.availability === 'AVAILABLE' ? 'FRESH' : 'UNAVAILABLE', refreshedAt: now, lastAttemptAt: now, retryAt: null, lastErrorCode: null },
+    create: { videoId: item.videoId, title: item.availability === 'AVAILABLE' ? item.title : null, channelTitle: item.availability === 'AVAILABLE' ? item.channel : null, thumbnailUrl: item.availability === 'AVAILABLE' ? item.thumbnail : null, duration: item.availability === 'AVAILABLE' ? item.duration : null, status: item.availability === 'AVAILABLE' ? 'FRESH' : 'UNAVAILABLE', refreshedAt: now, lastAttemptAt: now },
+    update: { title: item.availability === 'AVAILABLE' ? item.title : null, channelTitle: item.availability === 'AVAILABLE' ? item.channel : null, thumbnailUrl: item.availability === 'AVAILABLE' ? item.thumbnail : null, duration: item.availability === 'AVAILABLE' ? item.duration : null, status: item.availability === 'AVAILABLE' ? 'FRESH' : 'UNAVAILABLE', refreshedAt: now, lastAttemptAt: now, retryAt: null, lastErrorCode: null },
   });
 }
 

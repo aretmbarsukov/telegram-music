@@ -13,7 +13,7 @@ function matchesSecret(expectedSecret: string, supplied: string | string[] | und
 }
 
 export function registerTelegramWebhook(app: FastifyInstance, bot: Pick<Bot, 'handleUpdate'>, secretToken: string): void {
-  app.post(telegramWebhookPath, async (request, reply) => {
+  app.post(telegramWebhookPath, { config: { rateLimit: false } }, async (request, reply) => {
     if (!matchesSecret(secretToken, request.headers['x-telegram-bot-api-secret-token'])) {
       return reply.code(401).send({ error: 'Invalid Telegram webhook secret' });
     }

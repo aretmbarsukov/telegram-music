@@ -15,10 +15,11 @@ import { notifyAddedTracks } from './telegram-notifications.js';
 import { createMusicBot, configureMenuButton } from './bot.js';
 import { telegramWebhookPath, registerTelegramWebhook } from './telegram-webhook.js';
 import { startSyncWorker } from './worker.js';
+import { buildVibe, invalidateVibe } from './vibe.js';
 import type { Bot } from 'grammy';
 
 export async function createApp(options: { telegramBot?: Bot; runBackgroundSync?: boolean } = {}) {
-const app = Fastify({ logger: config.NODE_ENV !== 'test', bodyLimit: 64 * 1024, trustProxy: false });
+const app = Fastify({ logger: config.NODE_ENV !== 'test', bodyLimit: 64 * 1024, trustProxy: true });
 let stopBackgroundSync: (() => void) | undefined;
 const authHook = async (request: Parameters<typeof authenticate>[0], reply: { code: (status: number) => { send: (body: unknown) => void } }) => {
   try { (request as typeof request & { identity: ReturnType<typeof authenticate> }).identity = authenticate(request); }
@@ -110,6 +111,7 @@ app.post('/api/favorites/:videoId', { preHandler: authHook }, async (request, re
   const user = await db.user.upsert({ where: { telegramId: who.telegramId }, create: { ...who, settings: { create: {} } }, update: {} });
   const track = await db.track.upsert({ where: { youtubeVideoId: params.data.videoId }, create: { youtubeVideoId: params.data.videoId }, update: {}, select: { id: true } });
   await db.favorite.upsert({ where: { userId_trackId: { userId: user.id, trackId: track.id } }, create: { userId: user.id, trackId: track.id }, update: {} });
+  invalidateVibe(user.id);
   return reply.code(204).send();
 });
 
@@ -118,8 +120,25 @@ app.delete('/api/favorites/:videoId', { preHandler: authHook }, async (request, 
   if (!params.success) return reply.code(400).send({ error: 'Invalid video ID' });
   const who = identity(request); const db = getDatabase();
   const user = await db.user.findUnique({ where: { telegramId: who.telegramId }, select: { id: true } });
-  if (user) await db.favorite.deleteMany({ where: { userId: user.id, track: { youtubeVideoId: params.data.videoId } } });
+  if (user) {
+    await db.favorite.deleteMany({ where: { userId: user.id, track: { youtubeVideoId: params.data.videoId } } });
+    invalidateVibe(user.id);
+  }
   return reply.code(204).send();
+});
+
+app.get('/api/vibe', { preHandler: authHook, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
+  const query = z.object({ refresh: z.enum(['0', '1']).optional() }).safeParse(request.query);
+  if (!query.success) return reply.code(400).send({ error: 'Invalid query' });
+  const who = identity(request); const db = getDatabase();
+  const user = await db.user.findUnique({ where: { telegramId: who.telegramId }, select: { id: true } });
+  if (!user) return { tracks: [], seeds: { favorites: 0, channels: 0 }, degraded: false, notice: 'Додай треки в бібліотеку та познач улюблені, щоб зібрати свій вайб.' };
+  try {
+    return await buildVibe(db, user.id, { refresh: query.data.refresh === '1' });
+  } catch (error) {
+    if (error instanceof YouTubeError) return reply.code(error.statusCode).send({ error: error.message, reason: error.reason });
+    throw error;
+  }
 });
 
 app.get('/api/me', { preHandler: authHook }, async request => {
@@ -159,7 +178,7 @@ app.get('/api/playlists/:playlistId', { preHandler: authHook }, async (request, 
   if (!playlist) return reply.code(404).send({ error: 'Playlist not found' });
   const metadata = await db.youTubeMetadata.findMany({ where: { videoId: { in: playlist.items.map(i => i.track.youtubeVideoId) } } });
   const cacheById = new Map(metadata.map(item => [item.videoId, item]));
-  return { id: playlist.id, name: playlist.title ?? playlist.youtube?.cachedTitle ?? 'YouTube playlist', items: playlist.items.map(i => { const cache = cacheById.get(i.track.youtubeVideoId); return { id: i.id, origin: i.origin, position: i.position, track: { id: i.track.youtubeVideoId, title: i.customTitle ?? cache?.title ?? (cache?.status === 'EXPIRED' ? 'YouTube metadata expired' : 'YouTube video'), channel: cache?.channelTitle ?? null, thumbnail: cache?.thumbnailUrl ?? null, duration: cache?.duration ?? null, availability: cache?.status === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE', metadataStatus: cache?.status ?? 'EXPIRED' } }; }), youtube: playlist.youtube };
+  return { id: playlist.id, name: playlist.title ?? playlist.youtube?.cachedTitle ?? 'YouTube playlist', items: playlist.items.map(i => { const cache = cacheById.get(i.track.youtubeVideoId); return { id: i.id, itemId: i.id, origin: i.origin, position: i.position, track: { id: i.track.youtubeVideoId, title: i.customTitle ?? cache?.title ?? (cache?.status === 'EXPIRED' ? 'YouTube metadata expired' : 'YouTube video'), channel: cache?.channelTitle ?? null, thumbnail: cache?.thumbnailUrl ?? null, duration: cache?.duration ?? null, availability: cache?.status === 'UNAVAILABLE' ? 'UNAVAILABLE' : 'AVAILABLE', metadataStatus: cache?.status ?? 'EXPIRED' } }; }), youtube: playlist.youtube };
 });
 
 app.patch('/api/playlists/:playlistId', { preHandler: authHook }, async (request, reply) => {
@@ -199,6 +218,7 @@ app.post('/api/playlists/:playlistId/tracks', { preHandler: authHook }, async (r
       const count = await tx.playlistItem.count({ where: { playlistId: playlist.id } });
       const cache = await tx.youTubeMetadata.findUnique({ where: { videoId: data.videoId }, select: { status: true } });
       const item = await tx.playlistItem.create({ data: { playlistId: playlist.id, trackId: track.id, origin: 'LOCAL', customTitle: cache?.status === 'FRESH' ? null : (data.title || null), position: count } });
+      await tx.playlist.update({ where: { id: playlist.id }, data: { updatedAt: new Date() } });
       return item;
     });
     return reply.code(201).send({ id: result.id, videoId: data.videoId, origin: 'LOCAL' });
@@ -280,10 +300,13 @@ app.delete('/api/playlists/:playlistId/tracks/:itemId', { preHandler: authHook }
   const params = z.object({ playlistId: idSchema, itemId: idSchema }).safeParse(request.params);
   if (!params.success) return reply.code(400).send({ error: 'Invalid item id' });
   const who = identity(request); const db = getDatabase();
-  const item = await db.playlistItem.findFirst({ where: { id: params.data.itemId, playlistId: params.data.playlistId, playlist: { user: { telegramId: who.telegramId } } }, select: { id: true, playlistId: true } });
+  const item = await db.playlistItem.findFirst({ where: { id: params.data.itemId, playlistId: params.data.playlistId, playlist: { user: { telegramId: who.telegramId } } }, select: { id: true, playlistId: true, position: true } });
   if (!item) return reply.code(404).send({ error: 'Track not found' });
-  await db.playlistItem.delete({ where: { id: item.id } });
-  await db.playlistItem.updateMany({ where: { playlistId: item.playlistId, position: { gt: 0 } }, data: { position: { decrement: 1 } } });
+  await db.$transaction([
+    db.playlistItem.delete({ where: { id: item.id } }),
+    db.playlistItem.updateMany({ where: { playlistId: item.playlistId, position: { gt: item.position } }, data: { position: { decrement: 1 } } }),
+    db.playlist.update({ where: { id: item.playlistId }, data: { updatedAt: new Date() } }),
+  ]);
   return reply.code(204).send();
 });
 

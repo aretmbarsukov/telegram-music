@@ -1,3 +1,23 @@
+# Handoff — 2026-11-16
+
+## Frontend recovery, minimalist theme, playlist export, and background listening
+
+- Restored the complete frontend from commit `abfbd89` and treated the root `app.js`/`index.html`/CSS as canonical. `scripts/copy-assets.mjs` copies them into `public/` during `npm run build`; it now also copies `minimal.css`.
+- Removed `nav.js`, which duplicated navigation, called `stopPropagation`, and blocked `app.js` view and player-state updates. Navigation is handled by the delegated listener in `app.js`.
+- Fixed real defects found through the browser/API: CSP-blocked inline `onclick`; `DELETE`/bodyless `POST` requests incorrectly sending `Content-Type: application/json`; a `history` variable that shadowed `window.history` and broke `?play=` deep links; track deletion leaving gaps in `position`; missing `itemId` in playlist responses; playlist `updatedAt` not changing on item/import/sync changes; wrong ordered `before` query during sync; and missing `trustProxy`.
+- Added `src/playlist-export.ts`. `buildM3u()` writes official YouTube links only, `playlistFileName()` sanitizes the Telegram filename, `loadPlaylistExport()` loads a user-scoped playlist in position order, and `backgroundPlaybackUrl()` builds an official YouTube Music/YouTube link. No media is downloaded or extracted.
+- The bot playlist menu now has `▶️ Слухати все`, `🎧 Слухати у фоні`, `⬇️ Завантажити .m3u`, `🔄 Синхронізувати`, and `⬅️ До плейлистів`. `🎧` opens the source playlist in YouTube Music, or a temporary official YouTube playlist (`watch_videos?video_ids=…`, up to 50 items) for local playlists. Locked-screen playback is provided by the official YouTube app and requires YouTube Premium; the Mini App itself pauses when hidden.
+- The Mini App playlist page has the same `🎧 Слухати у фоні` action. It calls `Telegram.WebApp.openLink()` when available and falls back to a normal browser tab.
+- New `minimal.css` (loaded last): neutral flat surfaces, system fonts, no gradients/orbs/yellow highlights, compact hero, text-labelled neutral covers, quiet player, and a compact mini-player strip. `index.html` cache version is `20261116-6`.
+- The `(специально для Мухаммада)` / `(спеціально для Мухаммада)` dedication is empty for `ru` and `uk`. Only French `(spécialement pour Muhammad)` remains, in both the sidebar and the home hero; `:empty` rules hide it elsewhere.
+- Added “Мой вайб” / “Мій вайб” in `src/vibe.ts`: builds a profile from the user's favourites, playback history, and playlists, weights favourite channels and title words, adds duration similarity, excludes already-liked tracks from the top, and caps one channel at five tracks. Discovery uses official YouTube Data API `search.list` for up to two favourite channels (100 quota units per search), caches results for 10 minutes per user, and falls back to the user's own library with a visible notice when search is unavailable or over budget. No media is downloaded or extracted.
+- API and bot integration: `GET /api/vibe` (auth, user-scoped, `?refresh=1`, 10/min route limit); favourite POST/DELETE invalidate the per-user vibe cache. Bot `/vibe` replies with the top tracks as official YouTube links plus “▶️ Увімкнути вайб” (Mini App `?view=vibe`) and “🔄 Оновити добірку” (`vibe:refresh`). `/help` and the command list include `/vibe`.
+- Mini App vibe UI: sidebar and mobile nav item, `view-vibe` section with summary pills, refresh and “Увімкнути вайб” actions, per-track reason text, `?view=vibe` deep link, and a 5-column mobile nav. Translations added for `ru`, `uk`, and `fr`. A track row now accepts optional reasons and the crumb is locked so i18n re-apply cannot overwrite the current view title.
+- Verification on 2026-11-16: `npm run typecheck`, `npm run lint`, `npm run build`, and `npm test` passed (55/55). Browser checks at 1296px confirmed the vibe page, summary pills, per-track reasons, “Включить вайб” opening the player with a 3-item queue, the locked “Мій вайб” crumb, and no console errors. A demo `/api/vibe` returned 3 tracks with `seeds.favorites=2`, `seeds.channels=2`, `degraded=false`. No real Telegram token or YouTube API key was available, so bot and real playback remain unverified.
+- Git was installed with winget (`2.56.0`). The checkout was initialized, `origin` fetched, and the working tree reset to `origin/main` (`f464bfe`) so this work commits on top of the existing GitHub history. `.env` is ignored and the staged diff was scanned for Google API keys, bot tokens, and PostgreSQL credential URIs with no matches. Push result is recorded at the end of this section after the commit.
+
+---
+
 # Handoff — 2026-11-08
 
 ## Render Free deployment

@@ -2,7 +2,7 @@ import { config } from './config.js';
 import { getDatabase } from './database.js';
 
 export type YouTubeLink = { kind: 'playlist'; id: string } | { kind: 'video'; id: string };
-export interface YouTubeTrack { sourceItemId: string; videoId: string | null; title: string; channel: string | null; thumbnail: string | null; availability: string; }
+export interface YouTubeTrack { sourceItemId: string; videoId: string | null; title: string; channel: string | null; thumbnail: string | null; duration: string | null; availability: string; }
 export interface YouTubePlaylist { id: string; title: string; thumbnail: string | null; itemCount: number; }
 export class YouTubeError extends Error {
   constructor(message: string, readonly statusCode = 502, readonly reason = 'youtube_error') { super(message); }
@@ -32,11 +32,20 @@ const mockVideos = [
   { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny · open movie', channel: 'Blender Foundation', thumbnail: null, duration: null },
 ];
 
+const mockSearchCatalog = [
+  { videoId: '9bZkp7q19f0', title: 'Gangnam Style', channel: 'officialpsy', thumbnail: null, duration: null },
+  { videoId: 'kJQP7kiw5Fk', title: 'Despacito', channel: 'Luis Fonsi', thumbnail: null, duration: null },
+  { videoId: 'jfKfPfyJRdk', title: 'lofi hip hop radio', channel: 'Lofi Girl', thumbnail: null, duration: null },
+  { videoId: '60ItHLz5WEA', title: 'Faded', channel: 'Alan Walker', thumbnail: null, duration: null },
+  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny · open movie', channel: 'Blender Foundation', thumbnail: null, duration: null },
+  { videoId: 'M7lc1UVf-VE', title: 'YouTube IFrame API demo', channel: 'YouTube Developers', thumbnail: null, duration: null },
+];
+
 function mockPlaylistItems(id: string): YouTubeTrack[] {
-  return mockVideos.map((video, index) => ({ sourceItemId: `mock-${id}-${index + 1}`, videoId: video.videoId, title: video.title, channel: video.channel, thumbnail: video.thumbnail, availability: 'AVAILABLE' }));
+  return mockVideos.map((video, index) => ({ sourceItemId: `mock-${id}-${index + 1}`, videoId: video.videoId, title: video.title, channel: video.channel, thumbnail: video.thumbnail, duration: video.duration, availability: 'AVAILABLE' }));
 }
 
-async function request<T>(path: string, params: Record<string, string>): Promise<T> {
+async function request<T>(path: string, params: Record<string, string>, cost = 1): Promise<T> {
   const url = new URL(`https://www.googleapis.com/youtube/v3/${path}`);
   for (const [key, value] of Object.entries({ ...params, key: apiKey() })) url.searchParams.set(key, value);
   let last: unknown;
@@ -45,7 +54,7 @@ async function request<T>(path: string, params: Record<string, string>): Promise
       const day = new Date().toISOString().slice(0, 10);
       const db = getDatabase();
       await db.youTubeQuotaDay.upsert({ where: { day }, create: { day, units: 0 }, update: {} });
-      const reservation = await db.youTubeQuotaDay.updateMany({ where: { day, units: { lt: config.YOUTUBE_DAILY_QUOTA_LIMIT } }, data: { units: { increment: 1 } } });
+      const reservation = await db.youTubeQuotaDay.updateMany({ where: { day, units: { lte: config.YOUTUBE_DAILY_QUOTA_LIMIT - cost } }, data: { units: { increment: cost } } });
       if (!reservation.count) throw new YouTubeError('Daily YouTube API quota budget reached', 429, 'daily_quota_budget_reached');
       const response = await fetch(url, { signal: AbortSignal.timeout(12_000) });
       if (response.ok) return await response.json() as T;
@@ -67,8 +76,9 @@ async function request<T>(path: string, params: Record<string, string>): Promise
 }
 
 interface PlaylistListResponse { items?: { id: string; snippet?: { title?: string; thumbnails?: Record<string, { url?: string }> }; contentDetails?: { itemCount?: number }; status?: { privacyStatus?: string } }[]; }
-interface PlaylistItemsResponse { nextPageToken?: string; items?: { id?: string; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }>; resourceId?: { videoId?: string } }; contentDetails?: { videoId?: string } }[]; }
+interface PlaylistItemsResponse { nextPageToken?: string; items?: { id?: string; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }>; resourceId?: { videoId?: string } }; contentDetails?: { videoId?: string; duration?: string } }[]; }
 interface VideosResponse { items?: { id: string; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }> }; contentDetails?: { duration?: string } }[]; }
+interface SearchListResponse { items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }> } }[]; }
 const thumbnail = (t?: Record<string, { url?: string }>) => t?.maxres?.url ?? t?.standard?.url ?? t?.high?.url ?? t?.medium?.url ?? t?.default?.url ?? null;
 
 export async function getPlaylist(id: string): Promise<YouTubePlaylist> {
@@ -89,6 +99,7 @@ export async function getPlaylistItems(id: string): Promise<YouTubeTrack[]> {
       videoId: item.contentDetails?.videoId ?? item.snippet?.resourceId?.videoId ?? null,
       title: item.snippet?.title || 'Unavailable video', channel: item.snippet?.channelTitle ?? null,
       thumbnail: thumbnail(item.snippet?.thumbnails),
+      duration: item.contentDetails?.duration ?? null,
       availability: /^(deleted|private) video$/i.test(item.snippet?.title ?? '') ? 'UNAVAILABLE' : 'AVAILABLE',
     });
     pageToken = result.nextPageToken; pages++;
@@ -117,4 +128,44 @@ export async function getVideos(ids: string[]) {
   });
   const result = await request<VideosResponse>('videos', { part: 'snippet,contentDetails,status', id: ids.join(','), maxResults: '50' });
   return (result.items ?? []).map(item => ({ videoId: item.id, title: item.snippet?.title || 'YouTube video', channel: item.snippet?.channelTitle ?? null, thumbnail: thumbnail(item.snippet?.thumbnails), duration: item.contentDetails?.duration ?? null }));
+}
+
+/**
+ * Official YouTube search used to discover tracks similar to the user's liked channels.
+ * `search.list` costs 100 quota units, so callers must cache results.
+ */
+export async function searchVideos(query: string, maxResults = 10): Promise<YouTubeTrack[]> {
+  const limit = Math.max(1, Math.min(25, maxResults));
+  if (config.YOUTUBE_MOCK_MODE) {
+    return mockSearchCatalog.slice(0, limit).map(video => ({
+      sourceItemId: `mock-search-${video.videoId}`,
+      videoId: video.videoId,
+      title: video.title,
+      channel: video.channel,
+      thumbnail: video.thumbnail,
+      duration: video.duration,
+      availability: 'AVAILABLE',
+    }));
+  }
+  const result = await request<SearchListResponse>('search', {
+    part: 'snippet',
+    q: query,
+    type: 'video',
+    videoCategoryId: '10',
+    maxResults: String(limit),
+    safeSearch: 'none',
+  }, 100);
+  return (result.items ?? []).flatMap(item => {
+    const videoId = item.id?.videoId;
+    if (!videoId || !/^[\w-]{11}$/.test(videoId)) return [];
+    return [{
+      sourceItemId: `search-${videoId}`,
+      videoId,
+      title: item.snippet?.title || 'YouTube video',
+      channel: item.snippet?.channelTitle ?? null,
+      thumbnail: thumbnail(item.snippet?.thumbnails),
+      duration: null,
+      availability: 'AVAILABLE',
+    }];
+  });
 }
