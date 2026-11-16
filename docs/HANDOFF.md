@@ -1,5 +1,20 @@
 # Handoff — 2026-11-16
 
+## Mobile tap-target and player-control fixes — 2026-11-16
+
+- Reproduced the phone report at 390×844 with touch (`playwright-core` in a temp folder, not a dependency). Navigation, quick-card modals, playlist actions, track play/favorite, and vibe were already working; the remaining failures were concrete sizing/overlay defects.
+- `#queue-toggle` computed to **12×2 px** with `font-size: 0`, because the mobile rule in `styles.css` `.queue-button,.queue-button span{font-size:0}` also zeroed the icon and the button kept `1px 6px` padding. It is now a 44×44 target; only its text label is visually hidden with the clip technique, so the accessible name remains.
+- Phone transport controls measured 23–34 px (`shuffle` 23×24, `previous`/`next` 29×24, `play-toggle` 34×34, `repeat` 24×24, `now-fav` 36×36). `minimal.css` now gives the queue, transport controls, play toggle, `#now-fav`, row play/heart, and playlist/stage actions at least 40–44 px. The mobile player bar is 152 px tall (grid rows 58/74) to fit them without overlap.
+- The mobile player page could not scroll its last stage-controls row out from under the fixed bar: with 196 px bottom padding the maximum scroll was 66 px while the bar top was 648 px, and `stage-favorite`/add-to-playlist sat at y≈699. Mobile `.shell` and `body.is-player-view .shell` now use `calc(240px + safe-bottom)`; at 390×844 the player view scrolls 451–472 px and every stage control hit-tests above the bar.
+- `.player-stage::after` was a transparent `pointer-events: auto` overlay and `.youtube-player` had `pointer-events: none !important`, so YouTube's official iframe controls were visible but dead. `minimal.css` hides the overlay and restores `pointer-events: auto`; the served `.youtube-player` iframe measured 358×201 on mobile and 926×520 on desktop with pointer events enabled. This retains the official YouTube player and does not add any custom overlay or media handling.
+- Modal buttons were re-checked with real mobile taps: create playlist → playlist view; cancel closes; add track → modal closes and the row/count update; import preview switches the submit label to “Імпортувати”. A second import of the same playlist correctly returns the 409 “already in your library” message.
+- Bot inline callbacks were audited: `playlist:list`, `playlist:<id>`, `playlist:m3u:<id>`, `playlist:sync:<id>`, `setting:interval:*`, `setting:notifications:toggle`, and `vibe:refresh` all have handlers. The generic `^playlist:([\w-]+)$` regex cannot swallow the `m3u`/`sync` suffixes because `:` is not in `[\w-]`.
+- `index.html` bumps `minimal.css` to `?v=20261116-7` so stale phone caches pick up the fix. `player-ui.test.js` adds a 56th test asserting the 44 px queue target, hidden stage overlay, interactive iframe, 240 px scroll clearance, and root/`public` CSS equality.
+- Actual checks after the changes: `npm run typecheck`, `npm run lint`, `npm run build`, and `npm test` passed (**56/56**). Mobile checks at 390×844 reported no page errors and working queue, transport, stage-control, playlist, and modal actions. Desktop at 1296×900 still renders the 5 desktop nav views and the 926×520 iframe. Real Telegram WebView and audible playback remain unverified without the owner's token and device.
+- Code commit `0eb4d94` (“fix: make mobile player controls tappable”) contains the CSS, HTML cache bump, served copies, and test.
+
+---
+
 ## Frontend recovery, minimalist theme, playlist export, and background listening
 
 - Restored the complete frontend from commit `abfbd89` and treated the root `app.js`/`index.html`/CSS as canonical. `scripts/copy-assets.mjs` copies them into `public/` during `npm run build`; it now also copies `minimal.css`.
