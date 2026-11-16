@@ -431,6 +431,73 @@ dialog::backdrop {
   color: #8a8a8a;
 }
 
+.music-search-panel {
+  min-width: 0;
+  margin: 0 0 36px;
+}
+
+.music-search-panel .section-heading p {
+  margin: 6px 0 0;
+  color: #8a8a8a;
+  font-size: 12px;
+}
+
+.music-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(160px, 0.8fr) auto;
+  gap: 9px;
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.music-search-form .search,
+.music-search-form select,
+.music-search-form .primary {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+}
+
+.music-search-form .primary {
+  width: auto;
+  white-space: nowrap;
+}
+
+.track-row.search-result-row {
+  grid-template-columns: 34px 40px minmax(0, 1fr) 55px 44px 44px 44px;
+  gap: 8px;
+}
+
+.search-save {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 1px solid #303031;
+  border-radius: 8px;
+  background: #171718;
+  color: #d0d0d0;
+  font-size: 19px;
+  cursor: pointer;
+}
+
+.search-save:hover:not(:disabled) {
+  background: #222223;
+  border-color: #555;
+}
+
+.search-save.is-added {
+  color: #b7d7bd;
+}
+
+.search-save:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
 /* Player */
 .player-bar {
   background: rgba(11, 11, 12, 0.96);
@@ -601,6 +668,24 @@ body.is-mini-player #view-player .mini-player-open {
     display: none;
   }
 
+  .music-search-form {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .music-search-form select {
+    grid-column: 1 / -1;
+  }
+
+  .music-search-form .primary {
+    padding: 0 14px;
+  }
+
+  .track-row.search-result-row {
+    grid-template-columns: 22px 36px minmax(0, 1fr) 44px 44px 44px;
+    gap: 5px;
+    padding: 8px 0;
+  }
+
   .playlist-hero {
     align-items: flex-start;
   }
@@ -651,14 +736,45 @@ body.is-mini-player #view-player .mini-player-open {
   }
 }
 
-/* Keep the official YouTube iframe interactive. The old click-blocking
-   overlay and `pointer-events: none` made the player's own controls dead. */
+/* Playback remains controlled by the app's transport and seek controls. */
 .player-stage::after {
   display: none;
 }
 
-.youtube-player {
-  pointer-events: auto !important;
+.youtube-player,
+.youtube-player iframe {
+  pointer-events: none !important;
+}
+
+.player-bar {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.now-playing,
+.player-controls,
+.player-right,
+.progress-row,
+.progress {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.progress {
+  width: 100%;
+  flex: 1 1 0;
+}
+
+@media (min-width: 701px) and (max-width: 1000px) {
+  .player-bar {
+    gap: 8px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
 
 @media (max-width: 700px) {

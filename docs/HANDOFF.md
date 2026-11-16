@@ -1,5 +1,21 @@
 # Handoff — 2026-11-16
 
+## YouTube music search and playlist saving
+
+- Added authenticated `GET /api/youtube/search?q=...`, rate-limited to 10 requests/minute. It calls the official Data API `search.list` with Music category and embeddable-video filters, then `videos.list` to verify public visibility, embeddability, non-live status, and 1–10 minute duration. Common podcast, review, reaction, interview, radio, and film titles are excluded as a best-effort heuristic; this cannot guarantee semantic classification. Search uses up to 101 quota units per request and caches returned public metadata through the existing YouTube metadata helper.
+- The home page now has a translated search form and destination-playlist selector. Results reuse the existing `data-track` player action and official IFrame Player API. Each result includes a save/check button; the search response reports only the signed-in user's playlist membership, and saves use the existing duplicate-protected playlist-track endpoint.
+- Updated `i18n.js`, `minimal.css`, and the CSS/JS cache versions. Build copies canonical root assets into `public/`.
+- Verification: `npm run lint`, `npm run typecheck`, `npm test` (60/60), and its production TypeScript/frontend build passed. Tests stub YouTube responses; no real YouTube key or Telegram credentials were used, so live search/playback remain unverified.
+
+## Player input, seekbar, and vibe queue update — 2026-11-16
+
+- The compact bottom player now uses shrinkable grid tracks and explicit `min-width: 0`, `max-width: 100%`, and border-box sizing for its controls and progress row. Tablet widths also reduce side padding. The `minimal.css` cache version is `20261116-8`.
+- Direct pointer/touch interaction with the YouTube iframe is disabled in `minimal.css`; playback still uses the official IFrame Player API, with seeking and transport through the app controls. This supersedes the earlier change that restored the iframe's own controls.
+- Vibe recommendations now return up to 20 tracks per request. The server caches a larger per-user candidate pool for 10 minutes and lazily advances official YouTube Data API `search.list` page tokens when the remaining unqueued candidates cannot fill a batch. Each refill reads at most two search pages to bound quota use. The Mini App prefetches a batch when four or fewer tracks remain and automatically continues when the queue ends; already queued IDs are excluded. Search pagination is quota-accounted by the existing API wrapper.
+- Favorites still carry more profile weight than history (3 versus 1.2). Favoriting/unfavoriting invalidates the user's cached profile; liked tracks are omitted when other recommendations exist, but remain available as a fallback if no other candidates can be found.
+- `README.md`, `src/vibe.test.ts`, `src/youtube.test.ts`, `src/integration.test.ts`, and `player-ui.test.js` were updated. Actual local checks: lint and typecheck passed; build and tests passed (**57/57**). Build syncs the changed frontend assets into `public/`.
+- No live YouTube API key or Telegram credentials were used, so real search-page continuation and Telegram playback remain unverified.
+
 ## Mobile tap-target and player-control fixes — 2026-11-16
 
 - Reproduced the phone report at 390×844 with touch (`playwright-core` in a temp folder, not a dependency). Navigation, quick-card modals, playlist actions, track play/favorite, and vibe were already working; the remaining failures were concrete sizing/overlay defects.

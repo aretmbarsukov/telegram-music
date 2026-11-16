@@ -44,10 +44,30 @@ export interface VibeResult {
   seeds: { favorites: number; channels: number };
   degraded: boolean;
   notice?: string;
+  hasMore?: boolean;
 }
 
 const CACHE_MS = 10 * 60_000;
-const cache = new Map<string, { expiresAt: number; result: VibeResult }>();
+const BATCH_SIZE = 20;
+const POOL_LIMIT = 500;
+
+interface VibeChannelPage {
+  label: string;
+  nextPageToken: string | null;
+  exhausted: boolean;
+}
+
+interface VibeCacheEntry {
+  expiresAt: number;
+  result: VibeResult;
+  profile: VibeProfile | null;
+  library: VibeCandidate[];
+  discovery: VibeCandidate[];
+  known: Set<string>;
+  channelPages: VibeChannelPage[];
+}
+
+const cache = new Map<string, VibeCacheEntry>();
 
 export function resetVibeCache(): void {
   cache.clear();
@@ -181,9 +201,12 @@ export function rankVibe(
   discovery: VibeCandidate[],
   options: { limit?: number; rng?: () => number } = {},
 ): VibeTrack[] {
-  const limit = Math.max(1, Math.min(30, options.limit ?? 24));
+  const limit = Math.max(1, Math.min(POOL_LIMIT, options.limit ?? BATCH_SIZE));
   const rng = options.rng ?? Math.random;
-  const scored = uniqueById([...library, ...discovery].map(candidate => scoreVibeCandidate(candidate, profile, rng)));
+  const recommendationLibrary = discovery.length || library.some(candidate => !candidate.favorite)
+    ? library.filter(candidate => !candidate.favorite)
+    : library;
+  const scored = uniqueById([...recommendationLibrary, ...discovery].map(candidate => scoreVibeCandidate(candidate, profile, rng)));
   const libraryRanked = scored.filter(item => item.source === 'library').sort((a, b) => b.score - a.score);
   const discoveryRanked = scored.filter(item => item.source === 'discovery').sort((a, b) => b.score - a.score);
   const discoverySlots = Math.min(discoveryRanked.length, Math.round(limit * 0.58));
@@ -195,19 +218,7 @@ export function rankVibe(
     if (!selected.some(existing => existing.videoId === item.videoId)) selected.push(item);
   }
 
-  // Avoid a wall of tracks from one channel while keeping the strongest matches first.
-  const capped: ScoredCandidate[] = [];
-  const perChannel = new Map<string, number>();
-  const maxPerChannel = 5;
-  for (const item of [...selected].sort((a, b) => b.score - a.score)) {
-    const key = normalizeVibeText(item.channel ?? '') || 'unknown';
-    if ((perChannel.get(key) ?? 0) >= maxPerChannel) continue;
-    capped.push(item);
-    perChannel.set(key, (perChannel.get(key) ?? 0) + 1);
-    if (capped.length >= limit) break;
-  }
-
-  return capped.map(({ score: _score, ...track }) => ({
+  return [...selected].sort((a, b) => b.score - a.score).slice(0, limit).map(({ score: _score, ...track }) => ({
     videoId: track.videoId,
     title: track.title,
     channel: track.channel,
@@ -240,13 +251,127 @@ function mergeDiscoveryDetails(items: YouTubeTrack[], details: Awaited<ReturnTyp
   });
 }
 
+export function selectVibeBatch(tracks: VibeTrack[], limit: number): VibeTrack[] {
+  const batchSize = Math.max(1, Math.min(BATCH_SIZE, limit));
+  const selected: VibeTrack[] = [];
+  const selectedIds = new Set<string>();
+  const channelCounts = new Map<string, number>();
+  const perChannelLimit = Math.max(1, Math.ceil(batchSize * 0.6));
+
+  for (const track of tracks) {
+    const channel = normalizeVibeText(track.channel ?? '') || 'unknown';
+    if ((channelCounts.get(channel) ?? 0) >= perChannelLimit) continue;
+    selected.push(track);
+    selectedIds.add(track.videoId);
+    channelCounts.set(channel, (channelCounts.get(channel) ?? 0) + 1);
+    if (selected.length >= batchSize) return selected;
+  }
+
+  for (const track of tracks) {
+    if (selectedIds.has(track.videoId)) continue;
+    selected.push(track);
+    if (selected.length >= batchSize) break;
+  }
+  return selected;
+}
+
+function responsePage(entry: VibeCacheEntry, excluded: Set<string>, limit: number): VibeResult {
+  return {
+    ...entry.result,
+    tracks: selectVibeBatch(entry.result.tracks.filter(track => !excluded.has(track.videoId)), limit),
+    hasMore: entry.result.tracks.length < POOL_LIMIT &&
+      entry.channelPages.some(page => !page.exhausted && Boolean(page.nextPageToken)),
+  };
+}
+
+function rankCacheEntry(entry: VibeCacheEntry): void {
+  if (!entry.profile) return;
+  entry.result.tracks = rankVibe(entry.profile, entry.library, entry.discovery, { limit: POOL_LIMIT });
+}
+
+async function extendVibeCache(entry: VibeCacheEntry, excluded: Set<string>, limit: number): Promise<void> {
+  let pagesFetched = 0;
+  for (const channelPage of entry.channelPages) {
+    while (!channelPage.exhausted && channelPage.nextPageToken) {
+      if (entry.result.tracks.length >= POOL_LIMIT) return;
+      if (pagesFetched >= 2) return;
+      const available = entry.result.tracks.filter(track => !excluded.has(track.videoId));
+      if (available.length >= limit) return;
+
+      try {
+        const page = await searchVideos(channelPage.label, 25, channelPage.nextPageToken);
+        pagesFetched++;
+        channelPage.nextPageToken = page.nextPageToken;
+        channelPage.exhausted = !page.nextPageToken;
+        const discovered: VibeCandidate[] = [];
+        for (const item of page.items) {
+          if (!item.videoId || entry.known.has(item.videoId) || !sameChannel(item.channel, channelPage.label)) continue;
+          entry.known.add(item.videoId);
+          discovered.push({
+            videoId: item.videoId,
+            title: item.title,
+            channel: item.channel,
+            thumbnail: item.thumbnail,
+            duration: item.duration,
+            source: 'discovery',
+            favorite: false,
+            recent: false,
+          });
+        }
+
+        if (discovered.length) {
+          try {
+            const details = await getVideos(discovered.map(item => item.videoId));
+            const withDetails = mergeDiscoveryDetails(discovered.map(item => ({
+              sourceItemId: `vibe-${item.videoId}`,
+              videoId: item.videoId,
+              title: item.title,
+              channel: item.channel,
+              thumbnail: item.thumbnail,
+              availability: 'AVAILABLE',
+            } as YouTubeTrack)), details);
+            const detailById = new Map(withDetails.map(item => [item.videoId ?? '', item]));
+            for (const item of discovered) {
+              const detail = detailById.get(item.videoId);
+              if (!detail) continue;
+              item.title = detail.title || item.title;
+              item.channel = detail.channel ?? item.channel;
+              item.thumbnail = detail.thumbnail ?? item.thumbnail;
+              item.duration = detail.duration ?? item.duration;
+            }
+          } catch {
+            entry.result.degraded = true;
+            entry.result.notice = 'Дані пошуку отримано, але не вдалося уточнити частину деталей.';
+          }
+          entry.discovery.push(...discovered);
+          rankCacheEntry(entry);
+        }
+      } catch (error) {
+        channelPage.exhausted = true;
+        entry.result.degraded = true;
+        entry.result.notice = error instanceof YouTubeError && error.reason === 'daily_quota_budget_reached'
+          ? 'Ліміт пошуку YouTube на сьогодні вичерпано — продовжуємо з уже зібраною добіркою.'
+          : 'Пошук YouTube зараз недоступний — продовжуємо з уже зібраною добіркою.';
+        return;
+      }
+    }
+  }
+}
+
 export async function buildVibe(
   db: PrismaClient,
   userId: string,
-  options: { refresh?: boolean; limit?: number } = {},
+  options: { refresh?: boolean; limit?: number; excludeIds?: string[] } = {},
 ): Promise<VibeResult> {
+  const limit = Math.max(1, Math.min(BATCH_SIZE, options.limit ?? BATCH_SIZE));
+  const excluded = new Set(options.excludeIds ?? []);
   const cached = cache.get(userId);
-  if (!options.refresh && cached && cached.expiresAt > Date.now()) return cached.result;
+  if (!options.refresh && cached && cached.expiresAt > Date.now()) {
+    if (cached.profile && responsePage(cached, excluded, limit).tracks.length < limit) {
+      await extendVibeCache(cached, excluded, limit);
+    }
+    return responsePage(cached, excluded, limit);
+  }
 
   const [favoriteRows, historyRows, libraryRows] = await Promise.all([
     db.favorite.findMany({
@@ -309,8 +434,17 @@ export async function buildVibe(
       degraded: false,
       notice: 'Додай треки в бібліотеку та познач улюблені, щоб зібрати свій вайб.',
     };
-    cache.set(userId, { expiresAt: Date.now() + CACHE_MS, result: empty });
-    return empty;
+    const entry: VibeCacheEntry = {
+      expiresAt: Date.now() + CACHE_MS,
+      result: empty,
+      profile: null,
+      library: [],
+      discovery: [],
+      known: new Set(allIds),
+      channelPages: [],
+    };
+    cache.set(userId, entry);
+    return responsePage(entry, excluded, limit);
   }
 
   const profile = buildVibeProfile(seeds);
@@ -334,12 +468,17 @@ export async function buildVibe(
   const discovery: VibeCandidate[] = [];
   let degraded = false;
   let searchNotice: string | undefined;
+  const channelPages: VibeChannelPage[] = [];
 
   for (const channel of profile.topChannels.slice(0, 2)) {
     const label = profile.channelLabels.get(channel) ?? channel;
+    const channelPage: VibeChannelPage = { label, nextPageToken: null, exhausted: true };
+    channelPages.push(channelPage);
     try {
-      const found = await searchVideos(label, 10);
-      for (const item of found) {
+      const page = await searchVideos(label, 25);
+      channelPage.nextPageToken = page.nextPageToken;
+      channelPage.exhausted = !page.nextPageToken;
+      for (const item of page.items) {
         if (!item.videoId || known.has(item.videoId) || !sameChannel(item.channel, label)) continue;
         known.add(item.videoId);
         discovery.push({
@@ -352,21 +491,22 @@ export async function buildVibe(
           favorite: false,
           recent: false,
         });
-        if (discovery.length >= 20) break;
+        if (discovery.length >= 50) break;
       }
     } catch (error) {
+      channelPage.exhausted = true;
       degraded = true;
       searchNotice = error instanceof YouTubeError && error.reason === 'daily_quota_budget_reached'
         ? 'Ліміт пошуку YouTube на сьогодні вичерпано — показуємо добірку з твоєї бібліотеки.'
         : 'Пошук YouTube зараз недоступний — показуємо добірку з твоєї бібліотеки.';
       break;
     }
-    if (discovery.length >= 20) break;
+    if (discovery.length >= 50) break;
   }
 
   if (discovery.length) {
     try {
-      const details = await getVideos(discovery.slice(0, 20).map(item => item.videoId));
+      const details = await getVideos(discovery.slice(0, 50).map(item => item.videoId));
       const withDetails = mergeDiscoveryDetails(
         discovery.map(item => ({
           sourceItemId: `vibe-${item.videoId}`,
@@ -388,7 +528,8 @@ export async function buildVibe(
         item.duration = detail.duration ?? item.duration;
       }
     } catch {
-      /* Discovery still works without duration details. */
+      degraded = true;
+      if (!searchNotice) searchNotice = 'Дані пошуку отримано, але не вдалося уточнити частину деталей.';
     }
   }
 
@@ -401,6 +542,17 @@ export async function buildVibe(
   if (searchNotice) result.notice = searchNotice;
   else if (notice) result.notice = notice;
 
-  cache.set(userId, { expiresAt: Date.now() + CACHE_MS, result });
-  return result;
+  const entry: VibeCacheEntry = {
+    expiresAt: Date.now() + CACHE_MS,
+    result,
+    profile,
+    library: candidates,
+    discovery,
+    known,
+    channelPages,
+  };
+  rankCacheEntry(entry);
+  cache.set(userId, entry);
+  if (entry.result.degraded && searchNotice) entry.result.notice = searchNotice;
+  return responsePage(entry, excluded, limit);
 }

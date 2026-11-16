@@ -87,6 +87,15 @@ else
   }
 state.vibe = null;
 let vibeLoading = false;
+let musicSearchResults = [];
+let musicSearchState = "idle";
+let musicSearchError = "";
+let musicSearchLoading = false;
+const musicSearchSaving = new Set();
+let vibeQueueActive = false,
+  vibeQueueLoading = false,
+  vibeQueueAdvanceWhenReady = false,
+  vibeQueueSeen = new Set();
 let currentId = null,
   currentPlaylist = null,
   repeatMode = "off",
@@ -105,6 +114,7 @@ let currentId = null,
   autoplayRequested = false;
 const $ = (s) => document.querySelector(s),
   $$ = (s) => [...document.querySelectorAll(s)];
+const tr = (key) => window.LunaI18n?.t?.(key) || key;
 if (telegram) {
   telegram.ready();
   telegram.expand();
@@ -287,9 +297,110 @@ function cover(p, cls = "") {
 function empty(text) {
   return `<div class="empty">${esc(text)}</div>`;
 }
+function renderMusicSearch() {
+  const playlistSelect = $("#music-search-playlist"),
+    resultsBox = $("#music-search-results"),
+    submitButton = $("#music-search-form button[type='submit']");
+  if (!playlistSelect || !resultsBox) return;
+  const selectedId = playlistSelect.value;
+  playlistSelect.innerHTML = state.playlists.length
+    ? state.playlists
+        .map((playlist) => `<option value="${esc(playlist.id)}">${esc(playlist.name)}</option>`)
+        .join("")
+    : `<option value="">${esc(tr("musicSearchNoPlaylist"))}</option>`;
+  playlistSelect.value = state.playlists.some((playlist) => playlist.id === selectedId)
+    ? selectedId
+    : state.playlists[0]?.id || "";
+  playlistSelect.disabled = !state.playlists.length;
+  if (submitButton) submitButton.disabled = musicSearchLoading;
+
+  const ids = musicSearchResults.map((track) => track.videoId).filter(Boolean);
+  const rows = trackRows(ids, null, null, null, playlistSelect.value);
+  if (musicSearchLoading) resultsBox.innerHTML = empty(tr("musicSearchLoading"));
+  else if (musicSearchState === "error") resultsBox.innerHTML = empty(musicSearchError);
+  else if (musicSearchState === "unavailable") resultsBox.innerHTML = empty(tr("musicSearchRequiresApi"));
+  else if (musicSearchState === "empty") resultsBox.innerHTML = empty(tr("musicSearchNoResults"));
+  else resultsBox.innerHTML = rows || empty(tr("musicSearchHint"));
+}
+async function searchMusic() {
+  if (musicSearchLoading) return;
+  const query = $("#music-search-query").value.trim();
+  if (query.length < 2) {
+    notify(tr("musicSearchMinQuery"));
+    return;
+  }
+  if (!apiContext) {
+    musicSearchState = "unavailable";
+    renderMusicSearch();
+    return;
+  }
+  musicSearchLoading = true;
+  musicSearchState = "loading";
+  musicSearchResults = [];
+  musicSearchError = "";
+  renderMusicSearch();
+  try {
+    const data = await apiRequest(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+    musicSearchResults = Array.isArray(data?.tracks) ? data.tracks : [];
+    for (const track of musicSearchResults) {
+      if (!track.videoId) continue;
+      state.tracks[track.videoId] = {
+        id: track.videoId,
+        title: track.title,
+        channel: track.channel || "YouTube",
+        thumbnail: track.thumbnail || "",
+        duration: track.duration || "",
+        availability: track.availability || "AVAILABLE",
+        metadataStatus: "FRESH",
+      };
+    }
+    musicSearchState = musicSearchResults.length ? "results" : "empty";
+  } catch (error) {
+    musicSearchState = "error";
+    musicSearchError = error instanceof Error ? error.message : String(error);
+  } finally {
+    musicSearchLoading = false;
+    renderMusicSearch();
+  }
+}
+async function saveSearchTrack(videoId, playlistId) {
+  const result = musicSearchResults.find((track) => track.videoId === videoId),
+    playlist = state.playlists.find((item) => item.id === playlistId),
+    saveKey = `${playlistId}:${videoId}`;
+  if (!result || !playlist || musicSearchSaving.has(saveKey)) return;
+  result.playlistIds ||= [];
+  if (result.playlistIds.includes(playlistId)) return;
+  musicSearchSaving.add(saveKey);
+  renderMusicSearch();
+  try {
+    await apiRequest(`/api/playlists/${encodeURIComponent(playlistId)}/tracks`, {
+      method: "POST",
+      body: JSON.stringify({ videoId, title: result.title, channel: result.channel }),
+    });
+    result.playlistIds.push(playlistId);
+    if (playlist.trackIds.length > 0 || playlist.trackCount === 0)
+      playlist.trackIds.push(videoId);
+    playlist.trackCount = (playlist.trackCount || 0) + 1;
+    playlist.updated = Date.now();
+    render();
+    notify(tr("musicSearchAdded"));
+  } catch (error) {
+    if (error instanceof Error && /already exists/i.test(error.message)) {
+      result.playlistIds.push(playlistId);
+      render();
+      notify(tr("musicSearchDuplicate"));
+    } else {
+      notify(error instanceof Error ? error.message : String(error));
+    }
+  } finally {
+    musicSearchSaving.delete(saveKey);
+    renderMusicSearch();
+  }
+}
 function render() {
   renderSidebar();
   renderHome();
+  renderMusicSearch();
   renderLibrary();
   renderFavs();
   renderRecent();
@@ -367,7 +478,7 @@ function thumbnailMarkup(track) {
   }
   return "♫";
 }
-function trackRows(ids, contextIds = null, itemIds = null, reasons = null) {
+function trackRows(ids, contextIds = null, itemIds = null, reasons = null, searchPlaylistId = null) {
   const unique = [...new Set(ids)].filter((id) => state.tracks[id]),
     context = esc(JSON.stringify(contextIds || []));
   return unique
@@ -378,7 +489,15 @@ function trackRows(ids, contextIds = null, itemIds = null, reasons = null) {
       const stale = ["STALE", "EXPIRED"].includes(t.metadataStatus);
       const removeItem = itemIds?.[id];
       const reason = reasons?.[id];
-      return `<div class="track-row"><span class="track-order">${String(i + 1).padStart(2, "0")}</span><div class="track-cover" style="background:linear-gradient(135deg,${a},${b})">${thumbnailMarkup(t)}</div><div class="track-info"><b>${esc(t.title)}</b><small>${unavailable ? "Недоступне відео" : stale ? "Метадані застаріли" : esc(t.channel || "YouTube")}${reason ? ` · ${esc(reason)}` : ""}</small></div><span class="track-duration">${esc(formatDuration(t.duration || ""))}</span>${removeItem ? `<button class="heart row-remove" data-remove-item="${esc(removeItem)}" data-remove-video="${esc(id)}" aria-label="Прибрати з плейлиста">×</button>` : ""}<button class="row-play" data-track="${esc(id)}" data-track-context='${context}' aria-label="Відтворити">▶</button><button class="heart ${state.favorites.includes(id) ? "is-fav" : ""}" data-favorite="${esc(id)}" aria-label="Улюблене">${state.favorites.includes(id) ? "♥" : "♡"}</button></div>`;
+      const searchResult = searchPlaylistId
+        ? musicSearchResults.find((track) => track.videoId === id)
+        : null;
+      const isSaved = searchResult?.playlistIds?.includes(searchPlaylistId);
+      const isSaving = musicSearchSaving.has(`${searchPlaylistId}:${id}`);
+      const saveButton = searchPlaylistId
+        ? `<button class="search-save${isSaved ? " is-added" : ""}" data-search-add="${esc(id)}" data-search-playlist="${esc(searchPlaylistId)}" aria-label="${esc(tr(isSaved ? "musicSearchSaved" : "musicSearchAddTrack"))}" title="${esc(tr(isSaved ? "musicSearchSaved" : "musicSearchAddTrack"))}" ${isSaved || isSaving ? "disabled" : ""}>${isSaved ? "✓" : "＋"}</button>`
+        : "";
+      return `<div class="track-row${searchPlaylistId ? " search-result-row" : ""}"><span class="track-order">${String(i + 1).padStart(2, "0")}</span><div class="track-cover" style="background:linear-gradient(135deg,${a},${b})">${thumbnailMarkup(t)}</div><div class="track-info"><b>${esc(t.title)}</b><small>${unavailable ? "Недоступне відео" : stale ? "Метадані застаріли" : esc(t.channel || "YouTube")}${reason ? ` · ${esc(reason)}` : ""}</small></div><span class="track-duration">${esc(formatDuration(t.duration || ""))}</span>${removeItem ? `<button class="heart row-remove" data-remove-item="${esc(removeItem)}" data-remove-video="${esc(id)}" aria-label="Прибрати з плейлиста">×</button>` : ""}${saveButton}<button class="row-play" data-track="${esc(id)}" data-track-context='${context}' aria-label="Відтворити">▶</button><button class="heart ${state.favorites.includes(id) ? "is-fav" : ""}" data-favorite="${esc(id)}" aria-label="Улюблене">${state.favorites.includes(id) ? "♥" : "♡"}</button></div>`;
     })
     .join("");
 }
@@ -432,24 +551,7 @@ async function loadVibe(refresh = false) {
   try {
     if (apiContext) {
       const data = await apiRequest(`/api/vibe${refresh ? "?refresh=1" : ""}`);
-      state.vibe = {
-        tracks: Array.isArray(data?.tracks) ? data.tracks : [],
-        seeds: data?.seeds || {},
-        degraded: Boolean(data?.degraded),
-        notice: data?.notice || "",
-      };
-      for (const row of state.vibe.tracks) {
-        if (!row?.videoId) continue;
-        state.tracks[row.videoId] = {
-          id: row.videoId,
-          title: row.title || "YouTube video",
-          channel: row.channel || "YouTube",
-          thumbnail: row.thumbnail || "",
-          duration: row.duration || "",
-          availability: row.availability || "AVAILABLE",
-          metadataStatus: null,
-        };
-      }
+      updateVibeData(data);
     } else {
       state.vibe = localVibe();
     }
@@ -463,6 +565,28 @@ async function loadVibe(refresh = false) {
   } finally {
     vibeLoading = false;
     renderVibe();
+  }
+}
+function updateVibeData(data, append = false) {
+  const incoming = Array.isArray(data?.tracks) ? data.tracks : [];
+  const tracks = append ? [...(state.vibe?.tracks || []), ...incoming] : incoming;
+  state.vibe = {
+    tracks: [...new Map(tracks.map((row) => [row?.videoId, row])).values()].filter((row) => row?.videoId),
+    seeds: data?.seeds || state.vibe?.seeds || {},
+    degraded: Boolean(data?.degraded),
+    notice: data?.notice || "",
+  };
+  for (const row of incoming) {
+    if (!row?.videoId) continue;
+    state.tracks[row.videoId] = {
+      id: row.videoId,
+      title: row.title || "YouTube video",
+      channel: row.channel || "YouTube",
+      thumbnail: row.thumbnail || "",
+      duration: row.duration || "",
+      availability: row.availability || "AVAILABLE",
+      metadataStatus: null,
+    };
   }
 }
 function renderDetail() {
@@ -1089,9 +1213,13 @@ function isUnavailable(id) {
     )
   );
 }
-function selectQueue(queue, index) {
+function selectQueue(queue, index, isVibe = false) {
   state.queue = queue;
   queueIndex = index;
+  vibeQueueActive = Boolean(isVibe && apiContext);
+  vibeQueueLoading = false;
+  vibeQueueAdvanceWhenReady = false;
+  vibeQueueSeen = new Set(vibeQueueActive ? queue : []);
   currentId = null;
   if (index === null) {
     playbackMessage = "У черзі немає доступних для відтворення відео.";
@@ -1116,7 +1244,7 @@ function loadQueueIndex(index) {
     ytPlayer.loadVideoById(id);
   }
 }
-function playTrack(id, contextIds = null) {
+function playTrack(id, contextIds = null, isVibe = false) {
   if (!state.tracks[id]) return;
   const built = buildQueue(contextIds?.length ? contextIds : [id], id, shuffle);
   unavailableIds = new Set([
@@ -1126,6 +1254,7 @@ function playTrack(id, contextIds = null) {
   selectQueue(
     built.queue,
     firstPlayableIndex(built.queue, built.currentIndex, unavailableIds),
+    isVibe,
   );
 }
 async function playPlaylist(id, shouldShuffle = false) {
@@ -1180,6 +1309,12 @@ function step(dir, reason = "manual") {
           repeatMode,
         );
   if (index === null) {
+    if (dir > 0 && vibeQueueActive) {
+      playbackMessage = "Шукаємо наступні треки для твого вайбу…";
+      renderPlayer();
+      void extendVibeQueue(true);
+      return;
+    }
     if (reason === "ended") playbackMessage = "Чергу завершено.";
     else
       notify(dir > 0 ? "Наступного треку немає" : "Попереднього треку немає");
@@ -1187,6 +1322,55 @@ function step(dir, reason = "manual") {
     return;
   }
   loadQueueIndex(index);
+  if (dir > 0 && vibeQueueActive && state.queue.length - index <= 4) {
+    void extendVibeQueue(false);
+  }
+}
+async function extendVibeQueue(advanceAtEnd = false) {
+  if (!vibeQueueActive || !apiContext) return;
+  if (vibeQueueLoading) {
+    if (advanceAtEnd) vibeQueueAdvanceWhenReady = true;
+    return;
+  }
+  vibeQueueLoading = true;
+  vibeQueueAdvanceWhenReady = advanceAtEnd;
+  const activeQueue = state.queue;
+  try {
+    const exclude = [...vibeQueueSeen].slice(-500);
+    const query = new URLSearchParams({ exclude: exclude.join(",") });
+    const data = await apiRequest(`/api/vibe?${query}`);
+    if (state.queue !== activeQueue || !vibeQueueActive) return;
+    const incoming = Array.isArray(data?.tracks) ? data.tracks : [];
+    const nextTracks = incoming.filter(
+      (row) => row?.videoId && !vibeQueueSeen.has(row.videoId),
+    );
+    if (!nextTracks.length) {
+      if (data?.hasMore) {
+        playbackMessage = "Нові результати ще завантажуються. Натисни ▶|, щоб продовжити пошук.";
+      } else {
+        vibeQueueActive = false;
+        playbackMessage = "Нові треки для цієї хвилі закінчилися. Онови добірку у вкладці «Вайб».";
+      }
+      renderPlayer();
+      return;
+    }
+    updateVibeData({ ...data, tracks: nextTracks }, true);
+    for (const row of nextTracks) {
+      vibeQueueSeen.add(row.videoId);
+      state.queue.push(row.videoId);
+    }
+    renderPlayer();
+    if (vibeQueueAdvanceWhenReady) {
+      const next = firstPlayableIndex(state.queue, queueIndex + 1, unavailableIds);
+      if (next !== null) loadQueueIndex(next);
+    }
+  } catch (error) {
+    playbackMessage = `Не вдалося поповнити чергу вайбу: ${error.message}`;
+    renderPlayer();
+  } finally {
+    vibeQueueLoading = false;
+    vibeQueueAdvanceWhenReady = false;
+  }
 }
 function handlePlayerError(code) {
   const details = playerErrorDetails(code),
@@ -1211,6 +1395,12 @@ function handlePlayerError(code) {
     "error",
   );
   if (next === null) {
+    if (vibeQueueActive) {
+      playbackMessage = "Шукаємо наступні треки для твого вайбу…";
+      renderPlayer();
+      void extendVibeQueue(true);
+      return;
+    }
     playbackMessage += ` У черзі немає інших доступних треків.`;
     renderPlayer();
     return;
@@ -1354,7 +1544,11 @@ document.addEventListener("click", (e) => {
       notify("Спочатку познач кілька улюблених треків");
       return;
     }
-    playTrack(ids[0], ids);
+    playTrack(ids[0], ids, true);
+    return;
+  }
+  if (t.dataset.searchAdd) {
+    void saveSearchTrack(t.dataset.searchAdd, t.dataset.searchPlaylist);
     return;
   }
   if (
@@ -1500,6 +1694,12 @@ document.addEventListener("click", (e) => {
 });
 $("#search").addEventListener("input", renderLibrary);
 $("#sort").addEventListener("change", renderLibrary);
+$("#music-search-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  void searchMusic();
+});
+$("#music-search-playlist").addEventListener("change", renderMusicSearch);
+window.addEventListener("luna:lang", renderMusicSearch);
 function initializeYouTubePlayer() {
   const youtubeApi = window["YT"];
   if (ytPlayer || !youtubeApi?.Player) return;
