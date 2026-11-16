@@ -166,6 +166,81 @@ test('persists favorites per owner and returns cached display metadata', async (
   assert.equal(empty.json().some((favorite: { videoId: string }) => favorite.videoId === previewVideo), false);
 });
 
+test('searches music videos and reports playlist membership only to the owner', async () => {
+  const { config } = await import('./config.js');
+  const originalMockMode = config.YOUTUBE_MOCK_MODE;
+  config.YOUTUBE_MOCK_MODE = true;
+  try {
+    const headers = { 'x-dev-user-id': '100000001' };
+    const unauthenticated = await app.inject({ method: 'GET', url: '/api/youtube/search?q=music' });
+    assert.equal(unauthenticated.statusCode, 401);
+    const invalidQuery = await app.inject({ method: 'GET', url: '/api/youtube/search?q=a', headers });
+    assert.equal(invalidQuery.statusCode, 400);
+    const playlist = await app.inject({ method: 'POST', url: '/api/playlists', headers, payload: { name: 'Search results playlist' } });
+    assert.equal(playlist.statusCode, 201);
+    const playlistIdInDb = playlist.json().id as string;
+    const firstSearch = await app.inject({ method: 'GET', url: '/api/youtube/search?q=music', headers });
+    assert.equal(firstSearch.statusCode, 200, firstSearch.body);
+    const tracks = firstSearch.json().tracks as { videoId: string; title: string; duration: string; playlistIds: string[] }[];
+    assert.ok(tracks.length > 0);
+    assert.ok(tracks.every(track => track.duration && track.playlistIds.length === 0));
+    assert.ok(tracks.every(track => !/radio|movie|demo/i.test(track.title)));
+    const videoId = tracks[0]!.videoId;
+    const added = await app.inject({ method: 'POST', url: `/api/playlists/${playlistIdInDb}/tracks`, headers, payload: { videoId, title: tracks[0]!.title } });
+    assert.equal(added.statusCode, 201, added.body);
+    const duplicate = await app.inject({ method: 'POST', url: `/api/playlists/${playlistIdInDb}/tracks`, headers, payload: { videoId } });
+    assert.equal(duplicate.statusCode, 409);
+    const afterSave = await app.inject({ method: 'GET', url: '/api/youtube/search?q=music', headers });
+    const savedTrack = afterSave.json().tracks.find((track: { videoId: string }) => track.videoId === videoId);
+    assert.deepEqual(savedTrack.playlistIds, [playlistIdInDb]);
+    const otherOwner = await app.inject({ method: 'GET', url: '/api/youtube/search?q=music', headers: { authorization: telegramAuth(200000002) } });
+    assert.ok(otherOwner.json().tracks.every((track: { playlistIds: string[] }) => track.playlistIds.length === 0));
+
+    const previousFetch = globalThis.fetch;
+    const requestedUrls: URL[] = [];
+    const candidates = [
+      { id: 'SRCH0000001', title: 'Artist - Song', duration: 'PT3M30S', privacy: 'public', embeddable: true, live: 'none' },
+      { id: 'SRCH0000002', title: 'Too short', duration: 'PT30S', privacy: 'public', embeddable: true, live: 'none' },
+      { id: 'SRCH0000003', title: 'Live stream', duration: 'PT3M30S', privacy: 'public', embeddable: true, live: 'live' },
+      { id: 'SRCH0000004', title: 'Embed blocked', duration: 'PT3M30S', privacy: 'public', embeddable: false, live: 'none' },
+      { id: 'SRCH0000005', title: 'Private video', duration: 'PT3M30S', privacy: 'private', embeddable: true, live: 'none' },
+    ];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      requestedUrls.push(url);
+      if (url.pathname.endsWith('/search')) {
+        return Response.json({ items: candidates.map(candidate => ({ id: { videoId: candidate.id }, snippet: { title: candidate.title, channelTitle: 'Fixture Artist' } })) });
+      }
+      if (url.pathname.endsWith('/videos')) {
+        return Response.json({ items: candidates.map(candidate => ({
+          id: candidate.id,
+          snippet: { title: candidate.title, channelTitle: 'Fixture Artist', liveBroadcastContent: candidate.live },
+          contentDetails: { duration: candidate.duration },
+          status: { privacyStatus: candidate.privacy, embeddable: candidate.embeddable },
+        })) });
+      }
+      throw new Error(`Unexpected mocked endpoint: ${url.pathname}`);
+    }) as typeof fetch;
+    config.YOUTUBE_MOCK_MODE = false;
+    try {
+      const officialSearch = await app.inject({ method: 'GET', url: '/api/youtube/search?q=artist', headers });
+      assert.equal(officialSearch.statusCode, 200, officialSearch.body);
+      assert.deepEqual(officialSearch.json().tracks.map((track: { videoId: string }) => track.videoId), ['SRCH0000001']);
+      const searchUrl = requestedUrls.find(url => url.pathname.endsWith('/search'));
+      assert.equal(searchUrl?.searchParams.get('videoCategoryId'), '10');
+      assert.equal(searchUrl?.searchParams.get('videoEmbeddable'), 'true');
+      assert.equal(searchUrl?.searchParams.get('type'), 'video');
+      const metadata = await (await import('./database.js')).getDatabase().youTubeMetadata.findUnique({ where: { videoId: 'SRCH0000001' } });
+      assert.deepEqual({ title: metadata?.title, channel: metadata?.channelTitle, duration: metadata?.duration, status: metadata?.status }, { title: 'Artist - Song', channel: 'Fixture Artist', duration: 'PT3M30S', status: 'FRESH' });
+    } finally {
+      globalThis.fetch = previousFetch;
+      config.YOUTUBE_MOCK_MODE = true;
+    }
+  } finally {
+    config.YOUTUBE_MOCK_MODE = originalMockMode;
+  }
+});
+
 test('returns a personalized vibe from liked tracks and isolates owners', async () => {
   const headers = { 'x-dev-user-id': '100000001' };
   const database = (await import('./database.js')).getDatabase();
@@ -188,6 +263,16 @@ test('returns a personalized vibe from liked tracks and isolates owners', async 
   assert.ok(result.json().tracks.every((track: { videoId: string; reason: string }) => /^[\w-]{11}$/.test(track.videoId) && track.reason));
   const refreshed = await app.inject({ method: 'GET', url: '/api/vibe?refresh=1', headers });
   assert.equal(refreshed.statusCode, 200, refreshed.body);
+  const excludedIds = result.json().tracks.map((track: { videoId: string }) => track.videoId);
+  const nextBatch = await app.inject({
+    method: 'GET',
+    url: `/api/vibe?exclude=${excludedIds.join(',')}`,
+    headers,
+  });
+  assert.equal(nextBatch.statusCode, 200, nextBatch.body);
+  assert.ok(nextBatch.json().tracks.every((track: { videoId: string }) => !excludedIds.includes(track.videoId)));
+  const invalidExclusion = await app.inject({ method: 'GET', url: '/api/vibe?exclude=invalid', headers });
+  assert.equal(invalidExclusion.statusCode, 400);
   const otherUser = await app.inject({ method: 'GET', url: '/api/vibe', headers: { authorization: telegramAuth(200000002) } });
   assert.deepEqual(otherUser.json().tracks, []);
 });

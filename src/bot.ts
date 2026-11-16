@@ -96,7 +96,7 @@ export function createMusicBot(token: string, dependencies: BotDependencies = {}
       return;
     }
     try {
-      const result = await buildVibe(db, user.id, { refresh, limit: 24 });
+      const result = await buildVibe(db, user.id, { refresh, limit: 20 });
       if (!result.tracks.length) {
         await ctx.reply(result.notice ?? 'Додай треки та познач улюблені, щоб зібрати свій вайб.', { reply_markup: appKeyboard() });
         return;

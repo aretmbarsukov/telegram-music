@@ -1,8 +1,9 @@
 import { config } from './config.js';
 import { getDatabase } from './database.js';
+import { isoDurationToSeconds } from './playlist-export.js';
 
 export type YouTubeLink = { kind: 'playlist'; id: string } | { kind: 'video'; id: string };
-export interface YouTubeTrack { sourceItemId: string; videoId: string | null; title: string; channel: string | null; thumbnail: string | null; duration: string | null; availability: string; }
+export interface YouTubeTrack { sourceItemId: string; videoId: string | null; title: string; channel: string | null; thumbnail: string | null; duration: string | null; availability: string; embeddable?: boolean; privacyStatus?: string | null; liveBroadcastContent?: string | null; }
 export interface YouTubePlaylist { id: string; title: string; thumbnail: string | null; itemCount: number; }
 export class YouTubeError extends Error {
   constructor(message: string, readonly statusCode = 502, readonly reason = 'youtube_error') { super(message); }
@@ -27,18 +28,23 @@ function apiKey(): string {
 }
 
 const mockVideos = [
-  { videoId: 'M7lc1UVf-VE', title: 'YouTube IFrame API demo', channel: 'YouTube Developers', thumbnail: null, duration: null },
-  { videoId: 'jNQXAC9IVRw', title: 'Me at the zoo', channel: 'jawed', thumbnail: null, duration: null },
-  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny · open movie', channel: 'Blender Foundation', thumbnail: null, duration: null },
+  { videoId: 'M7lc1UVf-VE', title: 'YouTube IFrame API demo', channel: 'YouTube Developers', thumbnail: null, duration: 'PT15S', embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' },
+  { videoId: 'jNQXAC9IVRw', title: 'Me at the zoo', channel: 'jawed', thumbnail: null, duration: 'PT19S', embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' },
+  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny · open movie', channel: 'Blender Foundation', thumbnail: null, duration: 'PT9M56S', embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' },
 ];
 
 const mockSearchCatalog = [
-  { videoId: '9bZkp7q19f0', title: 'Gangnam Style', channel: 'officialpsy', thumbnail: null, duration: null },
-  { videoId: 'kJQP7kiw5Fk', title: 'Despacito', channel: 'Luis Fonsi', thumbnail: null, duration: null },
-  { videoId: 'jfKfPfyJRdk', title: 'lofi hip hop radio', channel: 'Lofi Girl', thumbnail: null, duration: null },
-  { videoId: '60ItHLz5WEA', title: 'Faded', channel: 'Alan Walker', thumbnail: null, duration: null },
-  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny · open movie', channel: 'Blender Foundation', thumbnail: null, duration: null },
-  { videoId: 'M7lc1UVf-VE', title: 'YouTube IFrame API demo', channel: 'YouTube Developers', thumbnail: null, duration: null },
+  { videoId: '9bZkp7q19f0', title: 'Gangnam Style', channel: 'officialpsy', thumbnail: null, duration: 'PT4M13S' },
+  { videoId: 'kJQP7kiw5Fk', title: 'Despacito', channel: 'Luis Fonsi', thumbnail: null, duration: 'PT4M42S' },
+  { videoId: 'jfKfPfyJRdk', title: 'lofi hip hop radio', channel: 'Lofi Girl', thumbnail: null, duration: 'PT0S' },
+  { videoId: '60ItHLz5WEA', title: 'Faded', channel: 'Alan Walker', thumbnail: null, duration: 'PT3M32S' },
+  { videoId: 'aqz-KE-bpKQ', title: 'Big Buck Bunny · open movie', channel: 'Blender Foundation', thumbnail: null, duration: 'PT9M56S' },
+  { videoId: 'M7lc1UVf-VE', title: 'YouTube IFrame API demo', channel: 'YouTube Developers', thumbnail: null, duration: 'PT15S' },
+  { videoId: 'min00000001', title: 'One Minute Song', channel: 'Luna Demo', thumbnail: null, duration: 'PT1M' },
+  { videoId: 'ten00000001', title: 'Ten Minute Song', channel: 'Luna Demo', thumbnail: null, duration: 'PT10M' },
+  { videoId: 'lng00000001', title: 'Long Song', channel: 'Luna Demo', thumbnail: null, duration: 'PT10M1S' },
+  { videoId: 'revw0000001', title: 'Album review', channel: 'Luna Demo', thumbnail: null, duration: 'PT4M' },
+  { videoId: 'podc0000001', title: 'Music podcast', channel: 'Luna Demo', thumbnail: null, duration: 'PT30M' },
 ];
 
 function mockPlaylistItems(id: string): YouTubeTrack[] {
@@ -77,8 +83,9 @@ async function request<T>(path: string, params: Record<string, string>, cost = 1
 
 interface PlaylistListResponse { items?: { id: string; snippet?: { title?: string; thumbnails?: Record<string, { url?: string }> }; contentDetails?: { itemCount?: number }; status?: { privacyStatus?: string } }[]; }
 interface PlaylistItemsResponse { nextPageToken?: string; items?: { id?: string; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }>; resourceId?: { videoId?: string } }; contentDetails?: { videoId?: string; duration?: string } }[]; }
-interface VideosResponse { items?: { id: string; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }> }; contentDetails?: { duration?: string } }[]; }
-interface SearchListResponse { items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }> } }[]; }
+interface VideosResponse { items?: { id: string; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }>; liveBroadcastContent?: string }; contentDetails?: { duration?: string }; status?: { embeddable?: boolean; privacyStatus?: string } }[]; }
+interface SearchListResponse { nextPageToken?: string; items?: { id?: { videoId?: string }; snippet?: { title?: string; channelTitle?: string; thumbnails?: Record<string, { url?: string }> } }[]; }
+export interface YouTubeSearchPage { items: YouTubeTrack[]; nextPageToken: string | null; }
 const thumbnail = (t?: Record<string, { url?: string }>) => t?.maxres?.url ?? t?.standard?.url ?? t?.high?.url ?? t?.medium?.url ?? t?.default?.url ?? null;
 
 export async function getPlaylist(id: string): Promise<YouTubePlaylist> {
@@ -124,20 +131,31 @@ export async function getVideos(ids: string[]) {
   if (!ids.length || ids.length > 50) throw new YouTubeError('videos.list accepts batches of 1 to 50 video IDs', 400, 'invalid_batch');
   if (config.YOUTUBE_MOCK_MODE) return ids.map(id => {
     const known = mockVideos.find(video => video.videoId === id);
-    return known ?? { videoId: id, title: `Demo track ${id}`, channel: 'Luna Demo', thumbnail: null, duration: 'PT3M30S' };
+    const searchResult = mockSearchCatalog.find(video => video.videoId === id);
+    return known ?? (searchResult ? { ...searchResult, embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' } : { videoId: id, title: `Demo track ${id}`, channel: 'Luna Demo', thumbnail: null, duration: 'PT3M30S', embeddable: true, privacyStatus: 'public', liveBroadcastContent: 'none' });
   });
   const result = await request<VideosResponse>('videos', { part: 'snippet,contentDetails,status', id: ids.join(','), maxResults: '50' });
-  return (result.items ?? []).map(item => ({ videoId: item.id, title: item.snippet?.title || 'YouTube video', channel: item.snippet?.channelTitle ?? null, thumbnail: thumbnail(item.snippet?.thumbnails), duration: item.contentDetails?.duration ?? null }));
+  return (result.items ?? []).map(item => ({
+    videoId: item.id,
+    title: item.snippet?.title || 'YouTube video',
+    channel: item.snippet?.channelTitle ?? null,
+    thumbnail: thumbnail(item.snippet?.thumbnails),
+    duration: item.contentDetails?.duration ?? null,
+    ...(item.status?.embeddable !== undefined ? { embeddable: item.status.embeddable } : {}),
+    privacyStatus: item.status?.privacyStatus ?? null,
+    liveBroadcastContent: item.snippet?.liveBroadcastContent ?? null,
+  }));
 }
 
 /**
  * Official YouTube search used to discover tracks similar to the user's liked channels.
  * `search.list` costs 100 quota units, so callers must cache results.
  */
-export async function searchVideos(query: string, maxResults = 10): Promise<YouTubeTrack[]> {
+export async function searchVideos(query: string, maxResults = 10, pageToken?: string): Promise<YouTubeSearchPage> {
   const limit = Math.max(1, Math.min(25, maxResults));
   if (config.YOUTUBE_MOCK_MODE) {
-    return mockSearchCatalog.slice(0, limit).map(video => ({
+    return {
+      items: mockSearchCatalog.slice(0, limit).map(video => ({
       sourceItemId: `mock-search-${video.videoId}`,
       videoId: video.videoId,
       title: video.title,
@@ -145,17 +163,22 @@ export async function searchVideos(query: string, maxResults = 10): Promise<YouT
       thumbnail: video.thumbnail,
       duration: video.duration,
       availability: 'AVAILABLE',
-    }));
+      })),
+      nextPageToken: null,
+    };
   }
-  const result = await request<SearchListResponse>('search', {
+  const params: Record<string, string> = {
     part: 'snippet',
     q: query,
     type: 'video',
     videoCategoryId: '10',
+    videoEmbeddable: 'true',
     maxResults: String(limit),
     safeSearch: 'none',
-  }, 100);
-  return (result.items ?? []).flatMap(item => {
+  };
+  if (pageToken) params.pageToken = pageToken;
+  const result = await request<SearchListResponse>('search', params, 100);
+  const items = (result.items ?? []).flatMap(item => {
     const videoId = item.id?.videoId;
     if (!videoId || !/^[\w-]{11}$/.test(videoId)) return [];
     return [{
@@ -167,5 +190,26 @@ export async function searchVideos(query: string, maxResults = 10): Promise<YouT
       duration: null,
       availability: 'AVAILABLE',
     }];
+  });
+  return { items, nextPageToken: result.nextPageToken ?? null };
+}
+
+const NON_MUSIC_TITLE = /\b(?:podcasts?|reviews?|reactions?|interviews?|commentary|tutorials?|analysis|explained|documentar(?:y|ies)|movies?|films?|livestreams?|live\s+streams?|radio|full\s+albums?|compilations?|top\s+\d+)\b|(?:подкаст|обзор|реакци|интервью|стрим|эфир|разбор|документал|фильм|огляд|реакці|інтерв['’]ю|стрім|ефір|розбір|документал|фільм|критик|émission|critique|en\s+direct)/iu;
+
+export async function searchMusicTracks(query: string, maxResults = 20): Promise<YouTubeTrack[]> {
+  const page = await searchVideos(query, maxResults);
+  const videoIds = page.items.flatMap(track => track.videoId ? [track.videoId] : []);
+  if (!videoIds.length) return [];
+  const details = await getVideos(videoIds.slice(0, 50));
+  const detailsById = new Map(details.map(video => [video.videoId, video]));
+  return page.items.flatMap(track => {
+    if (!track.videoId) return [];
+    const detail = detailsById.get(track.videoId);
+    if (!detail) return [];
+    const candidate = { ...track, ...detail, sourceItemId: track.sourceItemId, availability: track.availability };
+    const durationSeconds = isoDurationToSeconds(candidate.duration);
+    if (candidate.privacyStatus !== 'public' || candidate.embeddable !== true || candidate.liveBroadcastContent !== 'none') return [];
+    if (durationSeconds < 60 || durationSeconds > 600 || NON_MUSIC_TITLE.test(candidate.title)) return [];
+    return [candidate];
   });
 }

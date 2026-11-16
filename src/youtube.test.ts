@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseYouTubeUrl } from './youtube.js';
-import { getPlaylist, getPlaylistItems, getVideo, getVideos } from './youtube.js';
+import { getPlaylist, getPlaylistItems, getVideo, getVideos, searchVideos, searchMusicTracks } from './youtube.js';
 import { config } from './config.js';
 
 test('parses standard video URL forms', () => {
@@ -29,10 +29,31 @@ test('YouTube mock mode returns deterministic fixtures without network access', 
     const items = await getPlaylistItems('PLdemo123');
     const video = await getVideo(items[0]!.videoId!);
     const videos = await getVideos(items.slice(0, 2).map(item => item.videoId!));
+    const search = await searchVideos('Lofi Girl', 25, 'next-page');
     assert.equal(playlist.title, 'Luna demo playlist');
     assert.equal(items.length, 3);
     assert.equal(video.title, 'YouTube IFrame API demo');
     assert.equal(videos.length, 2);
+    assert.ok(search.items.length > 0);
+    assert.equal(search.nextPageToken, null);
+  } finally {
+    config.YOUTUBE_MOCK_MODE = original;
+  }
+});
+
+test('music search filters videos by duration and non-music titles', async () => {
+  const original = config.YOUTUBE_MOCK_MODE;
+  config.YOUTUBE_MOCK_MODE = true;
+  try {
+    const tracks = await searchMusicTracks('demo music', 25);
+    assert.deepEqual(tracks.map(track => track.title), [
+      'Gangnam Style',
+      'Despacito',
+      'Faded',
+      'One Minute Song',
+      'Ten Minute Song',
+    ]);
+    assert.ok(tracks.every(track => track.duration && !/radio|movie|demo/i.test(track.title)));
   } finally {
     config.YOUTUBE_MOCK_MODE = original;
   }

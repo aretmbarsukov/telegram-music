@@ -4,6 +4,7 @@ import {
   buildVibeProfile,
   normalizeVibeText,
   rankVibe,
+  selectVibeBatch,
   scoreVibeCandidate,
   type VibeCandidate,
   type VibeSeed,
@@ -64,7 +65,7 @@ test('scores a matching channel above an unrelated one and explains why', () => 
   assert.equal(unrelated.reason, 'Нова музика для тебе');
 });
 
-test('ranking keeps discovery first, deduplicates, and caps a single channel', () => {
+test('ranking keeps discovery first and retains a large deduplicated candidate pool', () => {
   const profile = buildVibeProfile([seed()]);
   const discovery: VibeCandidate[] = [];
   for (let index = 0; index < 9; index++) {
@@ -85,12 +86,37 @@ test('ranking keeps discovery first, deduplicates, and caps a single channel', (
 
   assert.ok(ranked.length >= 5 && ranked.length <= 8);
   assert.equal(new Set(ranked.map(track => track.videoId)).size, ranked.length);
-  assert.equal(ranked.filter(track => track.videoId.startsWith('disc')).length, 5);
+  assert.ok(ranked.filter(track => track.videoId.startsWith('disc')).length >= 5);
   assert.equal(ranked.some(track => track.videoId === 'libr0000001'), false);
   assert.ok(ranked.every(track => track.availability === 'AVAILABLE' && track.reason));
-  const perChannel = new Map<string, number>();
-  for (const track of ranked) perChannel.set(track.channel ?? '', (perChannel.get(track.channel ?? '') ?? 0) + 1);
-  assert.ok([...perChannel.values()].every(count => count <= 5));
+  assert.ok(ranked.filter(track => track.channel === 'Lofi Girl').length > 5);
+});
+
+test('recommendation batches diversify channels without truncating the full pool', () => {
+  const tracks = [
+    ...Array.from({ length: 16 }, (_, index) => ({
+      videoId: `lofi${String(index).padStart(7, '0')}`,
+      title: `Lofi ${index}`,
+      channel: 'Lofi Girl',
+      thumbnail: null,
+      duration: null,
+      availability: 'AVAILABLE' as const,
+      reason: 'Match',
+    })),
+    ...Array.from({ length: 10 }, (_, index) => ({
+      videoId: `other${String(index).padStart(6, '0')}`,
+      title: `Other ${index}`,
+      channel: 'Other Artist',
+      thumbnail: null,
+      duration: null,
+      availability: 'AVAILABLE' as const,
+      reason: 'Match',
+    })),
+  ];
+  const batch = selectVibeBatch(tracks, 20);
+  assert.equal(batch.length, 20);
+  assert.equal(batch.filter(track => track.channel === 'Lofi Girl').length, 12);
+  assert.equal(batch.filter(track => track.channel === 'Other Artist').length, 8);
 });
 
 test('ranking falls back to library tracks when discovery is empty', () => {
@@ -105,6 +131,6 @@ test('ranking falls back to library tracks when discovery is empty', () => {
     { limit: 10, rng: () => 0.5 },
   );
 
-  assert.equal(ranked.length, 2);
-  assert.ok(ranked.every(track => track.videoId.startsWith('libr')));
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0]?.videoId, 'libr0000002');
 });
