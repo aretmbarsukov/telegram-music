@@ -819,6 +819,10 @@ body.is-mini-player #view-player .mini-player-open {
 
   .player-controls .progress-row {
     margin-top: 4px;
+    width: 100%;
+    max-width: 240px;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .player-controls {

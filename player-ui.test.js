@@ -61,6 +61,7 @@ test('mobile player styles keep tappable controls and a scrollable page', async 
   assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-bar\s*\{[^}]*width:\s*min\(calc\(100% - 32px\),\s*380px\)/s);
   assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-bar\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/s);
   assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-controls\s*\{[^}]*max-width:\s*320px/s);
+  assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-controls \.progress-row\s*\{[^}]*max-width:\s*240px/s);
   // The player view must scroll clear of the fixed bar, which sits above the mobile nav.
   assert.match(minimal, /body\.is-player-view \.shell\s*\{[^}]*padding-bottom:\s*calc\(240px/s);
 });
