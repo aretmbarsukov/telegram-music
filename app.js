@@ -1707,7 +1707,7 @@ function initializeYouTubePlayer() {
   ytPlayer = new youtubeApi.Player("youtube-player", {
     width: 1280,
     height: 720,
-    playerVars: { playsinline: 1, origin: location.origin, controls: 1 },
+    playerVars: { playsinline: 1, origin: location.origin, controls: 0 },
     events: {
       onReady: () => {
         apiReady = true;

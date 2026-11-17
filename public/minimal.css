@@ -523,14 +523,21 @@ dialog::backdrop {
   font-weight: 550;
 }
 
-.progress,
+.progress {
+  background: transparent;
+}
+
 .progress::before {
   background: #2a2a2b;
+  height: 3px;
+  margin-top: -1.5px;
 }
 
 .progress #progress-fill,
 .progress > i {
   background: #d6d6d4 !important;
+  height: 3px;
+  margin-top: -1.5px;
 }
 
 .progress-thumb {
