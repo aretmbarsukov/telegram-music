@@ -182,7 +182,7 @@ test('searches music videos and reports playlist membership only to the owner', 
     const firstSearch = await app.inject({ method: 'GET', url: '/api/youtube/search?q=music', headers });
     assert.equal(firstSearch.statusCode, 200, firstSearch.body);
     const tracks = firstSearch.json().tracks as { videoId: string; title: string; duration: string; playlistIds: string[] }[];
-    assert.ok(tracks.length > 0);
+    assert.deepEqual(tracks.map(track => track.title), ['Faded']);
     assert.ok(tracks.every(track => track.duration && track.playlistIds.length === 0));
     assert.ok(tracks.every(track => !/radio|movie|demo/i.test(track.title)));
     const videoId = tracks[0]!.videoId;
@@ -204,6 +204,10 @@ test('searches music videos and reports playlist membership only to the owner', 
       { id: 'SRCH0000003', title: 'Live stream', duration: 'PT3M30S', privacy: 'public', embeddable: true, live: 'live' },
       { id: 'SRCH0000004', title: 'Embed blocked', duration: 'PT3M30S', privacy: 'public', embeddable: false, live: 'none' },
       { id: 'SRCH0000005', title: 'Private video', duration: 'PT3M30S', privacy: 'private', embeddable: true, live: 'none' },
+      { id: 'SRCH0000006', title: 'One Minute Song', duration: 'PT1M', privacy: 'public', embeddable: true, live: 'none' },
+      { id: 'SRCH0000007', title: 'Ten Minute Song', duration: 'PT10M', privacy: 'public', embeddable: true, live: 'none' },
+      { id: 'SRCH0000008', title: 'Overlong Song', duration: 'PT10M1S', privacy: 'public', embeddable: true, live: 'none' },
+      { id: 'SRCH0000009', title: 'Song review', duration: 'PT4M', privacy: 'public', embeddable: true, live: 'none' },
     ];
     globalThis.fetch = (async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
@@ -225,7 +229,7 @@ test('searches music videos and reports playlist membership only to the owner', 
     try {
       const officialSearch = await app.inject({ method: 'GET', url: '/api/youtube/search?q=artist', headers });
       assert.equal(officialSearch.statusCode, 200, officialSearch.body);
-      assert.deepEqual(officialSearch.json().tracks.map((track: { videoId: string }) => track.videoId), ['SRCH0000001']);
+      assert.deepEqual(officialSearch.json().tracks.map((track: { videoId: string }) => track.videoId), ['SRCH0000001', 'SRCH0000006', 'SRCH0000007']);
       const searchUrl = requestedUrls.find(url => url.pathname.endsWith('/search'));
       assert.equal(searchUrl?.searchParams.get('videoCategoryId'), '10');
       assert.equal(searchUrl?.searchParams.get('videoEmbeddable'), 'true');

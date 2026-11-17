@@ -46,13 +46,7 @@ test('music search filters videos by duration and non-music titles', async () =>
   config.YOUTUBE_MOCK_MODE = true;
   try {
     const tracks = await searchMusicTracks('demo music', 25);
-    assert.deepEqual(tracks.map(track => track.title), [
-      'Gangnam Style',
-      'Despacito',
-      'Faded',
-      'One Minute Song',
-      'Ten Minute Song',
-    ]);
+    assert.deepEqual(tracks.map(track => track.title), ['Faded']);
     assert.ok(tracks.every(track => track.duration && !/radio|movie|demo/i.test(track.title)));
   } finally {
     config.YOUTUBE_MOCK_MODE = original;

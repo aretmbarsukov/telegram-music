@@ -20,6 +20,7 @@ test('player renderer only addresses elements present in the served HTML', async
       assert.ok(rootHtml.includes('id="' + id + '"'), 'missing player element #' + id);
     }
   }
+  assert.match(source, /playerVars:\s*\{\s*playsinline:\s*1,\s*origin:\s*location\.origin,\s*controls:\s*0\s*\}/);
 });
 
 test('home view includes the translated YouTube music search and playlist-save UI', async () => {
@@ -52,9 +53,19 @@ test('mobile player styles keep tappable controls and a scrollable page', async 
   // The app owns playback controls; clicks must not reach the YouTube iframe.
   assert.match(minimal, /\.player-stage::after\s*\{[^}]*display:\s*none/s);
   assert.match(minimal, /\.youtube-player,\s*\.youtube-player iframe\s*\{[^}]*pointer-events:\s*none\s*!important/s);
-  assert.match(minimal, /\.player-bar\s*\{[^}]*max-width:\s*100%/s);
+  assert.match(minimal, /\.player-bar\s*\{[^}]*width:\s*calc\(100% - 32px\)/s);
+  assert.match(minimal, /\.player-bar\s*\{[^}]*max-width:\s*760px/s);
+  assert.match(minimal, /\.player-bar\s*\{[^}]*left:\s*50%[^}]*transform:\s*translateX\(-50%\)/s);
   assert.match(minimal, /\.now-playing,\s*\.player-controls,\s*\.player-right,\s*\.progress-row,\s*\.progress\s*\{[^}]*max-width:\s*100%/s);
   assert.match(minimal, /\.now-playing,\s*\.player-controls,\s*\.player-right,\s*\.progress-row,\s*\.progress\s*\{[^}]*min-width:\s*0/s);
+  assert.match(minimal, /\.player-page\s*\{[^}]*max-width:\s*800px/s);
+  assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-bar\s*\{[^}]*width:\s*min\(calc\(100% - 32px\),\s*380px\)/s);
+  assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-bar\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto/s);
+  assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-controls\s*\{[^}]*max-width:\s*320px/s);
+  assert.match(minimal, /@media \(max-width: 700px\)[\s\S]*?\.player-controls \.progress-row\s*\{[^}]*max-width:\s*240px/s);
+  assert.match(minimal, /\.progress\s*\{[^}]*background:\s*transparent/s);
+  assert.match(minimal, /\.progress::before\s*\{[^}]*height:\s*3px/s);
+  assert.match(minimal, /\.progress #progress-fill,[\s\S]*?\.progress > i\s*\{[^}]*height:\s*3px/s);
   // The player view must scroll clear of the fixed bar, which sits above the mobile nav.
   assert.match(minimal, /body\.is-player-view \.shell\s*\{[^}]*padding-bottom:\s*calc\(240px/s);
 });

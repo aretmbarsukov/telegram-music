@@ -1,3 +1,17 @@
+# Handoff — 2026-11-17
+
+## Player width and search playback follow-up
+
+- Capped the full player page at 800px and changed the bottom player into a centered dock with 16px side margins, a 380px maximum on mobile, and a 760px maximum on desktop. Mobile controls remain capped at 320px; the progress row is independently centered and capped at 240px. The visible track and fill are 3px high while the padded seek target remains large enough for touch. The home-page search panel now appears immediately after the hero. Root and `public/` assets are synchronized.
+- Corrected search result queue context so playback uses the found search results as its queue, without marking the queue as a Vibe queue.
+- Narrowed the entire bottom fixed player into a centered dock: max-width 380px on mobile, 760px on desktop, with 16px side margins. Restored the two-column mobile grid so the transport controls retain their full 44px targets instead of shrinking. At browser widths 324px and 568px, dock widths measured 277px and 380px; transport controls were 44px each and neither dock overflowed the viewport. Cache-busted `minimal.css` as `20261117-2`.
+- The seekbar had no independent width limit: its `flex: 1` expanded it to the full 320px controls row. Center its mobile row at 240px maximum so the visible progress track no longer fills the dock. Cache-busted `minimal.css` as `20261117-3`.
+- The broad-looking seekbar came from a CSS cascade: `minimal.css` reset the progress element's `background-clip`, painting the 32px padded touch target as a thick pill. The element background is now transparent; its track and fill render at 3px while the 32px hit target is preserved. Cache-busted `minimal.css` as `20261117-4`.
+- YouTube's native IFrame controls cannot be restyled from app CSS. Hide them with the official IFrame Player API's `controls: 0`; playback and seeking remain available via the app's own controls and its 3px seekbar. Cache-busted `app.js` as `20261117-2`.
+- Browser verification on the local demo at 568×944: the search form was visible, searching “Faded Alan Walker” returned the playable Faded result, clicking play kept `view-player` active while playback ran, and measured player controls/progress row were 320px. The page width was 521px and document scroll width 553px, below the 568px viewport.
+- Demo mock search now marks only Faded as embeddable; this avoids presenting mock-only results that the IFrame player rejects. This is fixture behavior only, not a claim about live YouTube embed availability.
+- No live YouTube credentials were used. Search and playback were exercised against the local demo and YouTube IFrame API; audible output and Telegram WebView behavior were not verified.
+
 # Handoff — 2026-11-16
 
 ## YouTube music search and playlist saving

@@ -523,14 +523,21 @@ dialog::backdrop {
   font-weight: 550;
 }
 
-.progress,
+.progress {
+  background: transparent;
+}
+
 .progress::before {
   background: #2a2a2b;
+  height: 3px;
+  margin-top: -1.5px;
 }
 
 .progress #progress-fill,
 .progress > i {
   background: #d6d6d4 !important;
+  height: 3px;
+  margin-top: -1.5px;
 }
 
 .progress-thumb {
@@ -749,9 +756,23 @@ body.is-mini-player #view-player .mini-player-open {
 .player-bar {
   box-sizing: border-box;
   min-width: 0;
-  max-width: 100%;
+  width: calc(100% - 32px);
+  max-width: 760px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  border: 1px solid #2e2e2e;
+  border-radius: 14px;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
   gap: 12px;
+}
+
+.player-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .now-playing,
@@ -781,8 +802,12 @@ body.is-mini-player #view-player .mini-player-open {
   /* Finger-sized transport controls; the phone bar was 23-34 px per button. */
   .player-bar {
     height: 152px !important;
+    width: min(calc(100% - 32px), 380px);
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-rows: 58px 74px;
     padding-bottom: 8px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
   }
 
   .player-controls .control {
@@ -801,6 +826,14 @@ body.is-mini-player #view-player .mini-player-open {
 
   .player-controls .progress-row {
     margin-top: 4px;
+    width: 100%;
+    max-width: 240px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .player-controls {
+    max-width: 320px;
   }
 
   .player-bar #now-fav {
@@ -884,5 +917,11 @@ body.is-mini-player #view-player .mini-player-open {
 
   .toast {
     bottom: calc(224px + var(--safe-bottom, 0px));
+  }
+}
+
+@media (max-width: 360px) {
+  .player-controls .control-row {
+    gap: 5px;
   }
 }
