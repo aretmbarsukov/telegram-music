@@ -4,7 +4,7 @@ Continue the Telegram Music project in this checkout. Read `AGENTS.md`, `README.
 
 ## Latest state (2026-11-16)
 
-- Frontend was restored from commit `abfbd89`; root files are canonical and `scripts/copy-assets.mjs` syncs them to `public/` during build. `nav.js` was removed.
+- Frontend was refactored on 2026-11-17: `public/` is the only source of truth for HTML, JavaScript, CSS, and player helpers. Duplicate root frontend files and `scripts/copy-assets.mjs` were removed; `nav.js` was already absent. Build and tests reference `public/` directly.
 - Playlist export is implemented in `src/playlist-export.ts` and covered by `src/playlist-export.test.ts`. The bot offers listen-all, background listening, `.m3u` export, and sync. The Mini App has the same background-listening action.
 - “Мой вайб” / “Мій вайб” is implemented in `src/vibe.ts` and exposed as `GET /api/vibe`, bot `/vibe`, and a Mini App view (`?view=vibe`). It ranks the user's favourites/history/playlists and uses official `search.list` discovery for up to two favourite channels, cached 10 minutes per user, with a library-only fallback and notice. Favourite changes invalidate the cache.
 - `minimal.css` replaces the previous yellow/gradient theme. Only French keeps the dedication text; `ru`/`uk` translations are empty.

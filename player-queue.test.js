@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildQueue, firstPlayableIndex, nextPlayableIndex, previousPlayableIndex, shuffleUpcoming } from './player-queue.js';
+import { buildQueue, firstPlayableIndex, nextPlayableIndex, previousPlayableIndex, shuffleUpcoming } from './public/js/player-queue.js';
 
 test('shuffle puts selected track first and shuffles the remaining queue deterministically', () => {
   const result = buildQueue(['a', 'b', 'c', 'd'], 'b', true, () => 0);

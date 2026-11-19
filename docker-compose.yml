@@ -1,4 +1,25 @@
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 8787
+      DATABASE_URL: postgresql://music:local_dev_only@postgres:5432/telegram_music?sslmode=disable
+      APP_ORIGIN: http://localhost:8787
+      DEV_AUTH_ENABLED: "true"
+      DEV_AUTH_USER_ID: "100000001"
+      YOUTUBE_MOCK_MODE: "true"
+    ports:
+      - "127.0.0.1:8787:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "npx prisma migrate deploy && npm start"]
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped

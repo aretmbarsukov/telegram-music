@@ -1,0 +1,43 @@
+:root {
+  color-scheme: dark;
+  --luna-fallback-bg: #0b0b0c;
+  --luna-fallback-panel: #131314;
+  --luna-fallback-text: #ececec;
+  --luna-fallback-hint: #8a8a8a;
+  --luna-fallback-accent: #e8e8e5;
+  --luna-fallback-accent-ink: #111112;
+
+  --color-bg: var(--tg-theme-bg-color, var(--luna-fallback-bg));
+  --color-panel: var(--tg-theme-secondary-bg-color, var(--luna-fallback-panel));
+  --color-panel-raised: color-mix(in srgb, var(--color-panel) 88%, #ffffff 12%);
+  --color-text: var(--tg-theme-text-color, var(--luna-fallback-text));
+  --color-muted: var(--tg-theme-hint-color, var(--luna-fallback-hint));
+  --color-accent: var(--tg-theme-button-color, var(--luna-fallback-accent));
+  --color-accent-ink: var(--tg-theme-button-text-color, var(--luna-fallback-accent-ink));
+  --color-line: color-mix(in srgb, var(--color-text) 12%, transparent);
+  --color-line-soft: color-mix(in srgb, var(--color-text) 7%, transparent);
+  --color-success: #9caf9c;
+  --color-error: #ff9ba4;
+  --color-warning: #f0d7a9;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--font-sans);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.34);
+  --glass: rgba(12, 12, 13, 0.78);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --tg-viewport-stable-height: 100dvh;
+}

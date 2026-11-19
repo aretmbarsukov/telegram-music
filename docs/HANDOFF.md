@@ -1,5 +1,27 @@
 # Handoff — 2026-11-17
 
+## Modular frontend and API decomposition — 2026-11-20
+
+- Added `public/js/main.js` as the only browser module entrypoint. The former monolithic `public/app.js` is now loaded from `/js/main.js`; utility modules live in `public/js/player-queue.js`, `player-errors.js`, `player-volume.js`, and `seek-bar.js`.
+- Added client modules `api.js`, `store.js`, `player.js`, `ui-render.js`, and `telegram-bridge.js`. Telegram SDK initialization and haptic/BackButton helpers are isolated without changing existing API calls or player behavior.
+- Split Fastify handlers into `src/routes/auth.routes.ts`, `tracks.routes.ts`, `playlists.routes.ts`, `vibe.routes.ts`, and `webhook.routes.ts`; `src/routes/shared.ts` centralizes auth and Zod schemas, while `src/routes/error-handler.ts` prevents production stack-trace responses.
+- Updated unit-test imports and lint targets to use modular JavaScript paths.
+- Final checks: `npm test` 60/60, `npm run build`, `npm run lint`, and `npm run typecheck` passed.
+
+## Frontend and Docker single-source refactor
+
+- `public/` is now the only source of truth for all browser assets. The duplicate root copies of `app.js`, `index.html`, `i18n.js`, CSS files, seek-bar helpers, and player helpers were removed.
+- `scripts/copy-assets.mjs` was removed. The build now only compiles TypeScript; it does not copy or synchronize frontend files.
+- Fastify static registration continues to serve `public/` at `/`. Player tests and client module tests import or read files exclusively from `public/`; lint targets `public/app.js`, `public/player-queue.js`, and `public/player-volume.js`.
+- Added a multi-stage `Dockerfile`, `.dockerignore`, and a local `app` service in `docker-compose.yml`. Compose starts PostgreSQL, waits for its healthcheck, runs `npx prisma migrate deploy`, and then starts the application.
+- `npm test` passed 60/60 and `npm run build` passed after the refactor. Docker CLI was not available in this environment, so image and Compose validation could not run locally.
+
+## CSS modularization — 2026-11-20
+
+- Consolidated the old `public/styles.css`, `public/minimal.css`, `public/clarity.css`, `public/api-states.css`, and `public/nav-fix.css` into `public/css/tokens.css` and `public/css/app.css`.
+- `tokens.css` maps Telegram theme variables to dark fallbacks and defines shared color, spacing, radius, font, shadow, and viewport tokens.
+- `app.css` provides mobile safe-area spacing, Telegram stable viewport height, search skeletons, image fallbacks, glass player surfaces, full-player transitions, and a 44px tap-target player layout without cascade `!important` rules.
+
 ## Player width and search playback follow-up
 
 - Capped the full player page at 800px and changed the bottom player into a centered dock with 16px side margins, a 380px maximum on mobile, and a 760px maximum on desktop. Mobile controls remain capped at 320px; the progress row is independently centered and capped at 240px. The visible track and fill are 3px high while the padded seek target remains large enough for touch. The home-page search panel now appears immediately after the hero. Root and `public/` assets are synchronized.

@@ -2,11 +2,13 @@ import js from '@eslint/js';
 
 export default [
   {
-    files: ['app.js', 'player-queue.js'],
+    files: ['public/js/*.js'],
     languageOptions: {
       globals: {
         Audio: 'readonly',
         CustomEvent: 'readonly',
+        HTMLImageElement: 'readonly',
+        MediaMetadata: 'readonly',
         MutationObserver: 'readonly',
         URL: 'readonly',
         URLSearchParams: 'readonly',
