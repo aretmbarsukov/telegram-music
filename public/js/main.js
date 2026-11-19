@@ -8,6 +8,11 @@ import {
 } from "./player-queue.js";
 import { playerErrorDetails } from "./player-errors.js";
 import { togglePlayerAudio } from "./player-volume.js";
+import { initializeTelegramWebApp, haptic as bridgeHaptic } from "./telegram-bridge.js";
+import "./api.js";
+import "./store.js";
+import "./ui-render.js";
+import "./player.js";
 const KEY = "luna-library-v1";
 const palettes = [
   ["#723f62", "#bd6c91"],
@@ -111,13 +116,38 @@ let currentId = null,
   playbackMessage = "",
   loadedVideoId = null,
   playerApiTimer = null,
-  autoplayRequested = false;
+  autoplayRequested = false,
+  viewHistory = ["home"],
+  playerStreamRetries = new Map();
 const $ = (s) => document.querySelector(s),
   $$ = (s) => [...document.querySelectorAll(s)];
 const tr = (key) => window.LunaI18n?.t?.(key) || key;
 if (telegram) {
-  telegram.ready();
-  telegram.expand();
+  initializeTelegramWebApp(telegram);
+}
+function haptic(kind = "light") {
+  bridgeHaptic(telegram, kind);
+}
+function updateTelegramBackButton(name) {
+  const backButton = telegram?.BackButton;
+  if (!backButton) return;
+  if (name === "home") {
+    backButton.hide();
+    return;
+  }
+  backButton.show();
+  backButton.offClick?.(handleTelegramBack);
+  backButton.onClick?.(handleTelegramBack);
+}
+function handleTelegramBack() {
+  haptic();
+  const previous = viewHistory.at(-2);
+  if (previous) {
+    viewHistory.pop();
+    showView(previous, false);
+  } else {
+    showView("home", false);
+  }
 }
 function setConnection(message = "", kind = "") {
   const banner = $("#connection-banner"),
@@ -224,6 +254,7 @@ async function loadApiLibrary() {
       account.innerHTML = `<b>${esc(me.firstName || "Музична бібліотека")}</b><small>${esc(me.username ? `@${me.username}` : me.telegramId)}</small>`;
     setConnection("", "connected");
     render();
+    updateTelegramBackButton("home");
     const params = new URLSearchParams(location.search);
     const deepLinkPlaylist = params.get("play");
     if (deepLinkPlaylist) {
@@ -316,7 +347,11 @@ function renderMusicSearch() {
 
   const ids = musicSearchResults.map((track) => track.videoId).filter(Boolean);
   const rows = trackRows(ids, ids, null, null, playlistSelect.value);
-  if (musicSearchLoading) resultsBox.innerHTML = empty(tr("musicSearchLoading"));
+  if (musicSearchLoading) {
+    resultsBox.innerHTML = `<div class="search-skeleton" aria-label="${esc(tr("musicSearchLoading"))}">
+      ${Array.from({ length: 5 }, () => '<div class="skeleton-row"><span class="skeleton-cover"></span><span class="skeleton-lines"><i></i><i></i></span></div>').join("")}
+    </div>`;
+  }
   else if (musicSearchState === "error") resultsBox.innerHTML = empty(musicSearchError);
   else if (musicSearchState === "unavailable") resultsBox.innerHTML = empty(tr("musicSearchRequiresApi"));
   else if (musicSearchState === "empty") resultsBox.innerHTML = empty(tr("musicSearchNoResults"));
@@ -722,9 +757,14 @@ function renderQueue() {
       .join("") ||
     empty("Черга порожня. Запусти плейлист, щоб додати композиції.");
 }
-function showView(name) {
+function showView(name, pushHistory = true) {
   $$(".view").forEach((v) => v.classList.remove("active"));
-  $("#view-" + name).classList.add("active");
+  const target = $("#view-" + name);
+  if (target) target.classList.add("active");
+  if (pushHistory && viewHistory.at(-1) !== name) viewHistory.push(name);
+  if (pushHistory && viewHistory.at(-2) !== name) haptic();
+  if (viewHistory.length > 20) viewHistory.shift();
+  updateTelegramBackButton(name);
   $$(".nav-item, .mobile-nav-item").forEach((x) =>
     x.classList.toggle("active", x.dataset.view === name),
   );
@@ -750,6 +790,50 @@ function updatePlayerHost() {
     mini = Boolean(currentId && !isPlayer);
   document.body.classList.toggle("is-mini-player", mini);
   document.body.classList.toggle("is-player-view", isPlayer);
+}
+function updateMediaSession() {
+  if (!("mediaSession" in navigator)) return;
+  const track = currentId ? state.tracks[currentId] : null;
+  if (!track) {
+    navigator.mediaSession.metadata = null;
+    return;
+  }
+  let artwork = [];
+  try {
+    const url = new URL(track.thumbnail);
+    if (["https:", "http:"].includes(url.protocol)) artwork = [{ src: url.href, sizes: "512x512", type: "image/jpeg" }];
+  } catch {
+    /* Thumbnail is optional for Media Session metadata. */
+  }
+  if (typeof MediaMetadata !== "undefined") {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title || "YouTube track",
+      artist: track.channel || "YouTube",
+      album: currentPlaylist ? state.playlists.find((playlist) => playlist.id === currentPlaylist)?.name || "Luna" : "Luna",
+      artwork,
+    });
+  }
+  navigator.mediaSession.playbackState =
+    ytPlayer?.getPlayerState?.() === 1 ? "playing" : "paused";
+  const safeSet = (action, handler) => {
+    try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* Unsupported action. */ }
+  };
+  safeSet("play", () => {
+    haptic();
+    if (ytPlayer && loadedVideoId === currentId) ytPlayer.playVideo();
+  });
+  safeSet("pause", () => {
+    haptic();
+    ytPlayer?.pauseVideo?.();
+  });
+  safeSet("previoustrack", () => { haptic(); step(-1, "media-session"); });
+  safeSet("nexttrack", () => { haptic(); step(1, "media-session"); });
+  safeSet("seekto", (details) => {
+    if (Number.isFinite(details.seekTime) && ytPlayer?.seekTo) {
+      ytPlayer.seekTo(details.seekTime, true);
+      haptic();
+    }
+  });
 }
 function notify(msg) {
   const el = $("#toast");
@@ -1078,6 +1162,7 @@ async function openPlaylist(id) {
 }
 async function toggleFav(id) {
   if (!id) return;
+  haptic();
   const wasFav = state.favorites.includes(id);
   try {
     if (apiMode)
@@ -1166,14 +1251,17 @@ function runPlayerAction(action) {
     return;
   }
   if (action === "next") {
+    haptic();
     step(1);
     return;
   }
   if (action === "previous") {
+    haptic();
     step(-1);
     return;
   }
   if (action === "shuffle") {
+    haptic();
     shuffle = !shuffle;
     if (queueIndex >= 0) state.queue = shuffleUpcoming(state.queue, queueIndex);
     renderPlayer();
@@ -1186,6 +1274,7 @@ function runPlayerAction(action) {
     return;
   }
   if (action === "toggle") {
+    haptic();
     if (!currentId) {
       notify("Обери композицію зі списку");
       return;
@@ -1234,6 +1323,8 @@ function loadQueueIndex(index) {
   if (!id) return;
   queueIndex = index;
   currentId = id;
+  playerStreamRetries.delete(id);
+  updateMediaSession();
   lastRecordedTrackId = null;
   autoplayRequested = true;
   playbackMessage = apiReady ? "" : "Завантажуємо офіційний YouTube плеєр…";
@@ -1376,8 +1467,22 @@ function handlePlayerError(code) {
   const details = playerErrorDetails(code),
     id = currentId;
   console.error("YouTube player error", Number(code));
+  if (id && !playerStreamRetries.has(id) && ytPlayer && apiReady) {
+    playerStreamRetries.set(id, true);
+    playbackMessage = "Оновлюємо потік треку…";
+    notify("Потік тимчасово недоступний. Повторюю один раз.");
+    renderPlayer();
+    setTimeout(() => {
+      if (currentId === id && ytPlayer) {
+        loadedVideoId = id;
+        ytPlayer.loadVideoById(id);
+      }
+    }, 450);
+    return;
+  }
   if (!details.skip) {
     playbackMessage = details.message;
+    notify(details.message);
     renderPlayer();
     return;
   }
@@ -1450,21 +1555,23 @@ async function removePlaylistItem(playlistId, itemId, videoId) {
 async function deletePlaylist(id) {
   const p = state.playlists.find((x) => x.id === id);
   if (!p) return;
-  if (!confirm(`Видалити плейлист «${p.name}»?`)) return;
-  if (apiMode)
-    try {
-      await apiRequest(`/api/playlists/${encodeURIComponent(id)}`, {
-        method: "DELETE",
-      });
-    } catch (e) {
-      notify(e.message);
-      return;
-    }
-  state.playlists = state.playlists.filter((x) => x.id !== id);
-  save();
-  render();
-  showView("library");
-  notify("Плейлист видалено");
+  openModal(
+    "Видалити плейлист",
+    `«${p.name}» буде видалено з твоєї бібліотеки.`,
+    '<div class="form-error">Цю дію не можна скасувати.</div>',
+    "Видалити",
+    async () => {
+      if (apiMode)
+        await apiRequest(`/api/playlists/${encodeURIComponent(id)}`, {
+          method: "DELETE",
+        });
+      state.playlists = state.playlists.filter((x) => x.id !== id);
+      save();
+      render();
+      showView("library");
+      notify("Плейлист видалено");
+    },
+  );
 }
 function renamePlaylist(id) {
   const p = state.playlists.find((x) => x.id === id);
@@ -1649,6 +1756,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (t.id === "player-toggle") {
+    haptic();
     if (!currentId) {
       notify("Обери композицію зі списку");
       return;
@@ -1668,10 +1776,12 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (t.id === "next") {
+    haptic();
     step(1);
     return;
   }
   if (t.id === "previous") {
+    haptic();
     step(-1);
     return;
   }
@@ -1745,14 +1855,17 @@ function initializeYouTubePlayer() {
         if (e.data === youtubeApi.PlayerState.PLAYING) {
           $("#player-toggle").textContent = "Ⅱ";
           playbackMessage = "Відтворюється через офіційний YouTube-плеєр.";
+          updateMediaSession();
           renderPlayer();
           if (currentId) recordPlayback(currentId);
         } else if (e.data === youtubeApi.PlayerState.PAUSED) {
           $("#player-toggle").textContent = "▶";
           playbackMessage = "Відео на паузі.";
+          updateMediaSession();
           renderPlayer();
         } else if (e.data === youtubeApi.PlayerState.ENDED) {
           $("#player-toggle").textContent = "▶";
+          updateMediaSession();
         }
       },
       onError: (e) => handlePlayerError(e.data),
@@ -1796,6 +1909,21 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   if (ytPlayer && apiReady) ytPlayer.pauseVideo();
 });
+document.addEventListener("error", (event) => {
+  if (!(event.target instanceof HTMLImageElement)) return;
+  const cover = event.target.closest(".track-cover, .mini-cover");
+  if (cover) {
+    cover.classList.add("image-fallback");
+    event.target.remove();
+  }
+}, true);
+function syncTelegramViewport() {
+  const stableHeight = window.Telegram?.WebApp?.viewportStableHeight;
+  if (stableHeight) document.documentElement.style.setProperty("--tg-viewport-stable-height", `${stableHeight}px`);
+  else document.documentElement.style.removeProperty("--tg-viewport-stable-height");
+}
+window.Telegram?.WebApp?.onEvent?.("viewportChanged", syncTelegramViewport);
+syncTelegramViewport();
 render();
 const initialView = new URLSearchParams(location.search).get("view");
 if (["home", "library", "favorites", "recent", "vibe"].includes(initialView))

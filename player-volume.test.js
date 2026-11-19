@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { togglePlayerAudio } from './player-volume.js';
+import { togglePlayerAudio } from './public/js/player-volume.js';
 
 test('unmutes explicitly and restores a zero player volume to a moderate level', () => {
   const calls = [];

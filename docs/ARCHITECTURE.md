@@ -11,7 +11,7 @@
 - `src/bot.ts`: import-safe grammY bot factory for `/start`, `/help`, `/app`, `/playlists`, `/sync`, `/add`, `/settings`, scoped inline playlist callbacks, and the HTTPS Mini App chat menu button. `BOT_MODE=polling` runs with `npm run bot`; production `BOT_MODE=webhook` is mounted on Fastify and validates Telegram's secret-token header before `handleUpdate`.
 - `src/telegram-notifications.ts`: sends at most one new-track message per changed playlist, honors persisted per-user `notificationsEnabled`, and is called after successful syncs by the worker, API and bot.
 - `src/telegram-webhook.ts`: Fastify webhook route with constant-time secret-header comparison.
-- `index.html`, `styles.css`, `api-states.css`, `app.js`: preserved browser prototype with backend-backed localhost/Telegram flow; `public/` contains the served copies. Telegram sends `initData`; localhost uses the development header only after `/api/health` advertises the explicitly enabled development identity. API errors never fall back to local prototype data. Other standalone contexts retain the original browser-local prototype.
+- `public/index.html`, `public/css/tokens.css`, `public/css/app.css`, and `public/app.js`: preserved browser prototype with backend-backed localhost/Telegram flow. Telegram sends `initData`; localhost uses the development header only after `/api/health` advertises the explicitly enabled development identity. API errors never fall back to local prototype data. Other standalone contexts retain the original browser-local prototype.
 
 ## REST API
 

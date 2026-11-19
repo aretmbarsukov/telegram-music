@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { playerErrorDetails } from './player-errors.js';
+import { playerErrorDetails } from './public/js/player-errors.js';
 
 test('invalid, unavailable, and embed-blocked videos have clear messages and skip once', () => {
   for (const code of [2, 5, 100, 101, 150]) {

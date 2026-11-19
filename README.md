@@ -53,7 +53,7 @@ Every bot playlist card offers one-tap actions:
 
 This project does not use `yt-dlp`, audio extraction, stream ripping, or any other media download. The only playback path in the Mini App is the official YouTube IFrame Player API. Direct pointer/touch interaction with its iframe is disabled; the app's transport and seek controls drive playback. Background playback stays inside the official YouTube apps.
 
-The served UI uses `minimal.css`: flat neutral surfaces, system fonts, a compact single-panel hero, text-labelled covers, and a compact mini-player. The `(специально для Мухаммада)` / `(спеціально для Мухаммада)` dedication was removed; only the French `(spécialement pour Muhammad)` remains.
+The served UI uses modular `public/css/tokens.css` and `public/css/app.css`: Telegram theme variables with dark fallbacks, safe-area-aware mobile layout, skeleton loading states, track-cover fallbacks, and a glass-effect mini-player. The `(специально для Мухаммада)` / `(спеціально для Мухаммада)` dedication was removed; only the French `(spécialement pour Muhammad)` remains.
 
 ## Мой вайб / Мій вайб
 
