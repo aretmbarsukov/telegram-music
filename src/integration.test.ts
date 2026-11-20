@@ -74,6 +74,7 @@ before(async () => {
   assert.equal(mainScript.headers['cache-control'], 'no-store, no-cache, must-revalidate');
   const csp = home.headers['content-security-policy'];
   assert.ok(csp);
+  assert.match(csp, /media-src[^;]*'self'[^;]*blob:[^;]*data:[^;]*https:/);
   assert.match(csp, /script-src[^;]*https:\/\/www\.youtube\.com/);
   assert.match(csp, /script-src[^;]*https:\/\/telegram\.org/);
   assert.match(csp, /frame-src[^;]*https:\/\/www\.youtube\.com[^;]*https:\/\/www\.youtube-nocookie\.com/);

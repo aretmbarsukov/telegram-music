@@ -30,6 +30,7 @@ const contentSecurityPolicy = [
   "img-src 'self' https://i.ytimg.com https://*.ytimg.com https://img.youtube.com data:",
   "connect-src 'self' https://telegram.org https://www.youtube.com https://youtube.com https://*.youtube.com",
   "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com",
+  "media-src 'self' blob: data: https:",
 ].join('; ');
 
 export async function createApp(options: { telegramBot?: Bot; runBackgroundSync?: boolean } = {}) {

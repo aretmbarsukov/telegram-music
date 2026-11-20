@@ -6,8 +6,9 @@
 - Added authenticated prefetch and Range-proxy endpoints for direct audio streams. The stream accepts validated Telegram `initData` from its query string for native `<audio>` requests, disables route URL logging and caching, and forwards byte ranges. With no provider URL configured, the existing YouTube IFrame fallback remains active.
 - Added the persistent `#native-audio-player` element and native `<audio>` mode in `public/js/main.js`, including 20-second prefetch, automatic queue advance, Media Session metadata/actions, and seek position updates.
 - Direct provider availability is reported by `/api/health` as `audioProviderConfigured`; no provider credentials or resolved stream URLs are returned to the frontend.
-- Native audio startup now keys off `audioStreamEnabled`, reports `play()` and media-element error details in a toast, and invokes playback synchronously from the Play click handler. `/` and `/js/*` responses are non-cacheable; local client assets use `?v=5`.
+- Native audio startup now keys off `audioStreamEnabled`, reports `play()` and media-element error details in a toast, and invokes playback synchronously from the Play click handler. `/` and `/js/*` responses are non-cacheable; local client assets use `?v=6`.
 - Audio stream failures are logged as warning categories/statuses without request URLs or `initData`; successful responses enforce byte-range headers and use only recognized `audio/mp4`/`audio/mpeg` upstream MIME types. Native audio failures show media/network state and fall back to the official YouTube IFrame.
+- CSP explicitly allows same-origin, blob, data, and HTTPS media. Native `<audio>` uses `preload=none`, no `crossorigin`, and error toasts include `currentSrc` path with `initData` removed.
 - No resolver format changes were made: YouTube media extraction remains disallowed by project constraints.
 
 ## Modular frontend and API decomposition — 2026-11-20
