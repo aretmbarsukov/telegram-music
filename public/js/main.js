@@ -138,11 +138,66 @@ function initializeNativeAudio() {
   nativeAudio.addEventListener("ended", handleNativeEnded);
   nativeAudio.addEventListener("play", () => updateNativeMediaSessionState("playing"));
   nativeAudio.addEventListener("pause", () => updateNativeMediaSessionState("paused"));
-  nativeAudio.addEventListener("error", () => {
-    notify("Не вдалося відтворити аудіопотік.");
-  });
+  nativeAudio.addEventListener("error", () => reportNativeAudioError());
 }
 initializeNativeAudio();
+function fallbackNativeAudioToYouTube() {
+  if (!currentId) return;
+  directAudioMode = false;
+  autoplayRequested = true;
+  if (nativeAudio) {
+    nativeAudio.pause();
+    nativeAudio.removeAttribute("src");
+    nativeAudio.load();
+  }
+  if (apiReady && ytPlayer) {
+    loadedVideoId = currentId;
+    ytPlayer.loadVideoById(currentId);
+  } else if (window["YT"]?.Player) {
+    initializeYouTubePlayer();
+  } else if (!document.querySelector('script[data-youtube-iframe-api]')) {
+    loadYouTubeIframeApi();
+  }
+}
+function reportNativeAudioError(error) {
+  const name = error?.name || "MediaError";
+  const message = error?.message || nativeAudio?.error?.message || "Audio playback failed";
+  const code = nativeAudio?.error?.code ?? "n/a";
+  const networkState = nativeAudio?.networkState ?? "n/a";
+  let audioPath = "unavailable";
+  if (nativeAudio?.currentSrc) {
+    try {
+      const source = new URL(nativeAudio.currentSrc, location.origin);
+      source.searchParams.delete("initData");
+      audioPath = `${source.pathname}${source.search}`;
+    } catch {
+      audioPath = nativeAudio.currentSrc.split("?")[0];
+    }
+  }
+  const details = `${name}: ${message} (audio.error code ${code}; networkState ${networkState}; source ${audioPath})`;
+  const useFallback = directAudioMode && Boolean(currentId);
+  playbackMessage = useFallback
+    ? `Помилка аудіо: ${details}. Перемикаю на YouTube-плеєр.`
+    : `Помилка аудіо: ${details}`;
+  if (useFallback) fallbackNativeAudioToYouTube();
+  notify(playbackMessage);
+  renderPlayer();
+}
+function playNativeAudio() {
+  if (!nativeAudio) return;
+  if (!telegram?.initData?.trim()) {
+    playbackMessage = "Telegram initData відсутній — аудіопотік не авторизовано.";
+    notify(playbackMessage);
+    renderPlayer();
+    return;
+  }
+  try {
+    const playRequest = nativeAudio.play();
+    playRequest?.catch((error) => reportNativeAudioError(error));
+  } catch (error) {
+    reportNativeAudioError(error);
+  }
+}
 function updateTelegramBackButton(name) {
   const backButton = telegram?.BackButton;
   if (!backButton) return;
@@ -217,7 +272,7 @@ async function loadApiLibrary() {
     if (!healthResponse.ok)
       throw new Error(`API недоступний (${healthResponse.status})`);
     apiHealth = await healthResponse.json();
-    directAudioMode = Boolean(apiHealth.audioProviderConfigured);
+    directAudioMode = apiHealth.audioStreamEnabled === true || apiHealth.audioProviderConfigured === true;
     if (!telegram?.initData && localApi && !apiHealth.devAuthEnabled)
       throw new Error(
         "Локальна авторизація вимкнена. Увімкни DEV_AUTH_ENABLED=true лише для розробки.",
@@ -840,7 +895,7 @@ function updateMediaSession() {
   };
   safeSet("play", () => {
     haptic();
-    if (directAudioMode && nativeAudio) nativeAudio.play().catch(() => notify("Не вдалося продовжити відтворення."));
+    if (directAudioMode && nativeAudio) playNativeAudio();
     else if (ytPlayer && loadedVideoId === currentId) ytPlayer.playVideo();
   });
   safeSet("pause", () => {
@@ -1352,7 +1407,7 @@ function runPlayerAction(action) {
       return;
     }
     if (directAudioMode && nativeAudio) {
-      if (nativeAudio.paused) nativeAudio.play().catch(() => notify("Не вдалося відтворити аудіопотік."));
+      if (nativeAudio.paused) playNativeAudio();
       else nativeAudio.pause();
     } else if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
     else if (loadedVideoId === currentId) ytPlayer.playVideo();
@@ -1400,12 +1455,17 @@ function loadQueueIndex(index) {
   render();
   showView("player");
   if (directAudioMode && nativeAudio) {
-    nativeAudio.src = `/api/tracks/${encodeURIComponent(id)}/audio-stream`;
-    nativeAudio.load();
-    nativeAudio.play().catch(() => {
-      playbackMessage = "Натисни ▶, щоб дозволити відтворення.";
+    const initData = telegram?.initData?.trim();
+    if (!initData) {
+      playbackMessage = "Telegram initData відсутній — аудіопотік не авторизовано.";
+      notify(playbackMessage);
       renderPlayer();
-    });
+      return;
+    }
+    const streamUrl = `/api/tracks/${encodeURIComponent(id)}/audio-stream?initData=${encodeURIComponent(initData)}`;
+    nativeAudio.src = streamUrl;
+    nativeAudio.load();
+    playNativeAudio();
     updateMediaSession();
   } else if (apiReady) {
     loadedVideoId = id;
@@ -1845,7 +1905,7 @@ document.addEventListener("click", (e) => {
       return;
     }
     if (directAudioMode && nativeAudio) {
-      if (nativeAudio.paused) nativeAudio.play().catch(() => notify("Не вдалося відтворити аудіопотік."));
+      if (nativeAudio.paused) playNativeAudio();
       else nativeAudio.pause();
     } else if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
     else if (loadedVideoId === currentId) ytPlayer.playVideo();
