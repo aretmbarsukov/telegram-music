@@ -18,9 +18,13 @@ test('player renderer only addresses elements present in the served HTML', async
     if (source.includes("$('#" + id)) {
       assert.ok(publicHtml.includes('id="' + id + '"'), 'missing player element #' + id);
     }
+    assert.ok(publicHtml.includes('id="native-audio-player"'));
+    assert.ok(publicHtml.includes('playsinline'));
   }
   assert.match(source, /playerVars:\s*\{\s*playsinline:\s*1,\s*origin:\s*location\.origin,\s*controls:\s*0\s*\}/);
   assert.match(source, /initializeTelegramWebApp/);
+  assert.match(source, /AUDIO_STREAM_PROVIDER|directAudioMode|audio-stream/);
+  assert.ok(source.includes('initData=${encodeURIComponent(telegram.initData)}'));
   assert.match(telegramBridge, /webApp\.ready/);
   assert.match(telegramBridge, /webApp\.expand/);
   assert.match(telegramBridge, /disableVerticalSwipes/);

@@ -62,6 +62,7 @@ export async function createApp(options: { telegramBot?: Bot; runBackgroundSync?
     devAuthEnabled: config.DEV_AUTH_ENABLED && config.NODE_ENV !== 'production',
     devAuthUserId: config.DEV_AUTH_ENABLED && config.NODE_ENV !== 'production' ? config.DEV_AUTH_USER_ID : null,
     youtubeMockEnabled: config.YOUTUBE_MOCK_MODE,
+    audioProviderConfigured: Boolean(config.AUDIO_STREAM_PROVIDER_URL?.trim()),
   }));
 
   if (options.runBackgroundSync) stopBackgroundSync = startSyncWorker({ runImmediately: false });

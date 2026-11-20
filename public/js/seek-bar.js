@@ -15,6 +15,8 @@
   }
 
   function getPlayer() {
+    const native = document.getElementById('native-audio-player');
+    if (native && native.src) return native;
     try {
       if (window.YT && typeof window.YT.get === 'function') {
         return window.YT.get('youtube-player') || null;
@@ -24,6 +26,9 @@
   }
 
   function getDuration(player) {
+    if (typeof player.duration === 'number') {
+      return isFinite(player.duration) && player.duration > 0 ? player.duration : 0;
+    }
     try {
       const d = player.getDuration();
       return d && isFinite(d) && d > 0 ? d : 0;
@@ -79,7 +84,11 @@
       if (!duration) return;
       const time = duration * ratio;
       try {
-        player.seekTo(time, true);
+          if (typeof player.currentTime === 'number' && typeof player.duration === 'number') {
+            player.currentTime = time;
+          } else {
+            player.seekTo(time, true);
+          }
       } catch (_) {
         return;
       }

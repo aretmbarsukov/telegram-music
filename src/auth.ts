@@ -49,11 +49,20 @@ export function validateInitData(initData: string, botToken: string, nowSeconds 
   };
 }
 
-export function authenticate(request: FastifyRequest): TelegramIdentity {
+export function authenticate(request: FastifyRequest, options: { allowQueryInitData?: boolean } = {}): TelegramIdentity {
   const header = request.headers.authorization;
-  if (typeof header === 'string' && header.startsWith('tma ')) {
+  let initData = typeof header === 'string' && header.startsWith('tma ')
+    ? header.slice(4)
+    : undefined;
+  if (!initData && options.allowQueryInitData) {
+    const url = new URL(request.raw.url ?? '/', 'http://localhost');
+    const queryValues = url.searchParams.getAll('initData');
+    if (queryValues.length > 1) throw new AuthError('Malformed Telegram initData');
+    initData = queryValues[0];
+  }
+  if (initData) {
     if (!telegramBotToken) throw new AuthError('Telegram authentication is not configured', 503);
-    return validateInitData(header.slice(4), telegramBotToken);
+    return validateInitData(initData, telegramBotToken);
   }
   if (config.DEV_AUTH_ENABLED && config.NODE_ENV !== 'production' && request.headers['x-dev-user-id'] === config.DEV_AUTH_USER_ID) {
     return { telegramId: BigInt(config.DEV_AUTH_USER_ID), username: 'local_demo', firstName: 'Local listener', lastName: null, languageCode: 'uk' };

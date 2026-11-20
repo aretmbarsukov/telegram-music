@@ -22,12 +22,16 @@ let app: Awaited<ReturnType<typeof import('./server.js').createApp>>;
 let originalFetch: typeof fetch;
 let remoteIds = remotePlaylistItems;
 
-function telegramAuth(userId: number) {
+function telegramInitData(userId: number) {
   const params = new URLSearchParams({ auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify({ id: userId, first_name: `Test ${userId}` }) });
   const check = [...params.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, value]) => `${key}=${value}`).join('\n');
   const secret = createHmac('sha256', 'WebAppData').update(botToken).digest();
   params.set('hash', createHmac('sha256', secret).update(check).digest('hex'));
-  return `tma ${params.toString()}`;
+  return params.toString();
+}
+
+function telegramAuth(userId: number) {
+  return `tma ${telegramInitData(userId)}`;
 }
 
 before(async () => {
@@ -101,6 +105,58 @@ after(async () => {
   if (originalFetch) globalThis.fetch = originalFetch;
   if (pgServer) await pgServer.stop();
   if (pg) await pg.close();
+});
+
+test('audio stream accepts signed initData in query and preserves Range forwarding', async () => {
+  const invalid = await app.inject({ method: 'GET', url: `/api/tracks/${videoA}/audio-stream?initData=invalid` });
+  assert.equal(invalid.statusCode, 401);
+  const unauthenticated = await app.inject({ method: 'GET', url: `/api/tracks/${videoA}/audio-stream` });
+  assert.equal(unauthenticated.statusCode, 401);
+
+  const { config } = await import('./config.js');
+  const originalProvider = config.AUDIO_STREAM_PROVIDER_URL;
+  const fetchBeforeTest = globalThis.fetch;
+  const forwardedRanges: string[] = [];
+  config.AUDIO_STREAM_PROVIDER_URL = 'https://provider.example/resolve?id={id}';
+  globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
+    if (url.hostname === 'provider.example') {
+      return Response.json({ url: 'https://audio.example/stream.m4a', mimeType: 'audio/mp4' });
+    }
+    if (url.hostname === 'audio.example') {
+      forwardedRanges.push(new Headers(init?.headers).get('Range') ?? '');
+      return new Response(new Uint8Array([1, 2, 3, 4, 5]), {
+        status: 206,
+        headers: {
+          'Accept-Ranges': 'bytes',
+          'Content-Range': 'bytes 5-9/10',
+          'Content-Length': '5',
+          'Content-Type': 'audio/mp4',
+        },
+      });
+    }
+    throw new Error(`Unexpected fetch URL: ${url.origin}`);
+  }) as typeof fetch;
+
+  try {
+    const initData = telegramInitData(300000003);
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/tracks/${videoA}/audio-stream?initData=${encodeURIComponent(initData)}`,
+      headers: { range: 'bytes=5-9' },
+    });
+    assert.equal(response.statusCode, 206, response.body);
+    assert.equal(response.headers['content-range'], 'bytes 5-9/10');
+    assert.equal(response.headers['content-length'], '5');
+    assert.equal(response.headers['accept-ranges'], 'bytes');
+    assert.equal(response.headers['content-type'], 'audio/mp4');
+    assert.equal(response.headers['cache-control'], 'private, no-store');
+    assert.equal(response.body.length, 5);
+    assert.deepEqual(forwardedRanges, ['bytes=5-9']);
+  } finally {
+    globalThis.fetch = fetchBeforeTest;
+    config.AUDIO_STREAM_PROVIDER_URL = originalProvider;
+  }
 });
 
 test('imports a mocked public playlist, deduplicates videos, reconciles sync, preserves local items and isolates owners', async () => {
