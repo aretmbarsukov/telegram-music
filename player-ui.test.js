@@ -29,6 +29,9 @@ test('player renderer only addresses elements present in the served HTML', async
   assert.match(source, /const playRequest = nativeAudio\.play\(\)/);
   assert.match(source, /playRequest\?\.catch\(\(error\) => reportNativeAudioError\(error\)\)/);
   assert.match(source, /nativeAudio\?\.error\?\.code/);
+  assert.match(source, /nativeAudio\?\.networkState/);
+  assert.match(source, /if \(!telegram\?\.initData\?\.trim\(\)\)/);
+  assert.match(source, /function fallbackNativeAudioToYouTube\(\)/);
   assert.match(publicHtml, /href="css\/tokens\.css\?v=5"/);
   assert.match(publicHtml, /href="css\/app\.css\?v=5"/);
   assert.match(publicHtml, /src="i18n\.js\?v=5"/);

@@ -122,6 +122,7 @@ test('audio stream accepts signed initData in query and preserves Range forwardi
   const originalProvider = config.AUDIO_STREAM_PROVIDER_URL;
   const fetchBeforeTest = globalThis.fetch;
   const forwardedRanges: string[] = [];
+  let upstreamContentType = 'application/octet-stream';
   config.AUDIO_STREAM_PROVIDER_URL = 'https://provider.example/resolve?id={id}';
   assert.equal((await app.inject({ method: 'GET', url: '/health' })).json().audioStreamEnabled, true);
   assert.equal((await app.inject({ method: 'GET', url: '/api/health' })).json().audioStreamEnabled, true);
@@ -135,10 +136,9 @@ test('audio stream accepts signed initData in query and preserves Range forwardi
       return new Response(new Uint8Array([1, 2, 3, 4, 5]), {
         status: 206,
         headers: {
-          'Accept-Ranges': 'bytes',
           'Content-Range': 'bytes 5-9/10',
           'Content-Length': '5',
-          'Content-Type': 'audio/mp4',
+          'Content-Type': upstreamContentType,
         },
       });
     }
@@ -160,6 +160,15 @@ test('audio stream accepts signed initData in query and preserves Range forwardi
     assert.equal(response.headers['cache-control'], 'private, no-store');
     assert.equal(response.body.length, 5);
     assert.deepEqual(forwardedRanges, ['bytes=5-9']);
+
+    upstreamContentType = 'audio/mpeg';
+    const mpegResponse = await app.inject({
+      method: 'GET',
+      url: `/api/tracks/${videoA}/audio-stream?initData=${encodeURIComponent(initData)}`,
+    });
+    assert.equal(mpegResponse.statusCode, 206);
+    assert.equal(mpegResponse.headers['content-type'], 'audio/mpeg');
+    assert.equal(mpegResponse.headers['accept-ranges'], 'bytes');
   } finally {
     globalThis.fetch = fetchBeforeTest;
     config.AUDIO_STREAM_PROVIDER_URL = originalProvider;
