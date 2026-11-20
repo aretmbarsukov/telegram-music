@@ -164,7 +164,17 @@ function reportNativeAudioError(error) {
   const message = error?.message || nativeAudio?.error?.message || "Audio playback failed";
   const code = nativeAudio?.error?.code ?? "n/a";
   const networkState = nativeAudio?.networkState ?? "n/a";
-  const details = `${name}: ${message} (audio.error code ${code}; networkState ${networkState})`;
+  let audioPath = "unavailable";
+  if (nativeAudio?.currentSrc) {
+    try {
+      const source = new URL(nativeAudio.currentSrc, location.origin);
+      source.searchParams.delete("initData");
+      audioPath = `${source.pathname}${source.search}`;
+    } catch {
+      audioPath = nativeAudio.currentSrc.split("?")[0];
+    }
+  }
+  const details = `${name}: ${message} (audio.error code ${code}; networkState ${networkState}; source ${audioPath})`;
   const useFallback = directAudioMode && Boolean(currentId);
   playbackMessage = useFallback
     ? `Помилка аудіо: ${details}. Перемикаю на YouTube-плеєр.`
@@ -1445,10 +1455,15 @@ function loadQueueIndex(index) {
   render();
   showView("player");
   if (directAudioMode && nativeAudio) {
-    const streamPath = `/api/tracks/${encodeURIComponent(id)}/audio-stream`;
-    nativeAudio.src = telegram?.initData
-      ? `${streamPath}?initData=${encodeURIComponent(telegram.initData)}`
-      : streamPath;
+    const initData = telegram?.initData?.trim();
+    if (!initData) {
+      playbackMessage = "Telegram initData відсутній — аудіопотік не авторизовано.";
+      notify(playbackMessage);
+      renderPlayer();
+      return;
+    }
+    const streamUrl = `/api/tracks/${encodeURIComponent(id)}/audio-stream?initData=${encodeURIComponent(initData)}`;
+    nativeAudio.src = streamUrl;
     nativeAudio.load();
     playNativeAudio();
     updateMediaSession();
