@@ -141,17 +141,46 @@ function initializeNativeAudio() {
   nativeAudio.addEventListener("error", () => reportNativeAudioError());
 }
 initializeNativeAudio();
+function fallbackNativeAudioToYouTube() {
+  if (!currentId) return;
+  directAudioMode = false;
+  autoplayRequested = true;
+  if (nativeAudio) {
+    nativeAudio.pause();
+    nativeAudio.removeAttribute("src");
+    nativeAudio.load();
+  }
+  if (apiReady && ytPlayer) {
+    loadedVideoId = currentId;
+    ytPlayer.loadVideoById(currentId);
+  } else if (window["YT"]?.Player) {
+    initializeYouTubePlayer();
+  } else if (!document.querySelector('script[data-youtube-iframe-api]')) {
+    loadYouTubeIframeApi();
+  }
+}
 function reportNativeAudioError(error) {
   const name = error?.name || "MediaError";
   const message = error?.message || nativeAudio?.error?.message || "Audio playback failed";
-  const code = nativeAudio?.error?.code;
-  const details = `${name}: ${message}${code ? ` (audio.error code ${code})` : ""}`;
-  playbackMessage = `Помилка аудіо: ${details}`;
+  const code = nativeAudio?.error?.code ?? "n/a";
+  const networkState = nativeAudio?.networkState ?? "n/a";
+  const details = `${name}: ${message} (audio.error code ${code}; networkState ${networkState})`;
+  const useFallback = directAudioMode && Boolean(currentId);
+  playbackMessage = useFallback
+    ? `Помилка аудіо: ${details}. Перемикаю на YouTube-плеєр.`
+    : `Помилка аудіо: ${details}`;
+  if (useFallback) fallbackNativeAudioToYouTube();
   notify(playbackMessage);
   renderPlayer();
 }
 function playNativeAudio() {
   if (!nativeAudio) return;
+  if (!telegram?.initData?.trim()) {
+    playbackMessage = "Telegram initData відсутній — аудіопотік не авторизовано.";
+    notify(playbackMessage);
+    renderPlayer();
+    return;
+  }
   try {
     const playRequest = nativeAudio.play();
     playRequest?.catch((error) => reportNativeAudioError(error));

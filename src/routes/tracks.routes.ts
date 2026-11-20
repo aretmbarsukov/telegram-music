@@ -5,6 +5,11 @@ import { authHook, identity, queryInitDataAuthHook, videoIdSchema } from './shar
 import { AudioProviderError, getAudioProviderUrl, resolveDirectAudio } from '../audio-provider.js';
 
 export function registerTrackRoutes(app: FastifyInstance): void {
+  const audioStreamAuthHook = async (request: Parameters<typeof queryInitDataAuthHook>[0], reply: Parameters<typeof queryInitDataAuthHook>[1]) => {
+    await queryInitDataAuthHook(request, reply);
+    if (!request.identity) request.log.warn('Audio stream authentication failed');
+  };
+
   app.post('/api/tracks/:id/prefetch', { preHandler: authHook }, async (request, reply) => {
     if (!getAudioProviderUrl()) return reply.code(204).send();
     const params = z.object({ id: videoIdSchema }).safeParse(request.params);
@@ -19,19 +24,26 @@ export function registerTrackRoutes(app: FastifyInstance): void {
   });
 
   app.get('/api/tracks/:id/audio-stream', {
-    preHandler: queryInitDataAuthHook,
-    logLevel: 'silent',
+    preHandler: audioStreamAuthHook,
+    logLevel: 'warn',
   }, async (request, reply) => {
     const params = z.object({ id: videoIdSchema }).safeParse(request.params);
-    if (!params.success) return reply.code(400).send({ error: 'Invalid track ID' });
-    if (!getAudioProviderUrl()) return reply.code(404).send({ error: 'Direct audio provider is not configured' });
+    if (!params.success) {
+      request.log.warn('Audio stream request has an invalid track ID');
+      return reply.code(400).send({ error: 'Invalid track ID' });
+    }
+    if (!getAudioProviderUrl()) {
+      request.log.warn('Audio stream provider is not configured');
+      return reply.code(404).send({ error: 'Direct audio provider is not configured' });
+    }
 
     let resolved: { url: string; mimeType?: string };
     try {
       resolved = await resolveDirectAudio(params.data.id);
     } catch (error) {
-      if (error instanceof AudioProviderError) return reply.code(error.statusCode).send({ error: error.message });
-      throw error;
+      const statusCode = error instanceof AudioProviderError ? error.statusCode : 502;
+      request.log.warn({ statusCode }, 'Audio stream URL resolution failed');
+      return reply.code(statusCode).send({ error: error instanceof AudioProviderError ? error.message : 'Audio stream URL resolution failed' });
     }
 
     const rangeHeader = request.headers.range;
@@ -41,22 +53,28 @@ export function registerTrackRoutes(app: FastifyInstance): void {
     try {
       upstream = await fetch(resolved.url, { headers: upstreamHeaders, redirect: 'follow', signal: AbortSignal.timeout(30_000) });
     } catch {
+      request.log.warn('Audio stream upstream request failed');
       return reply.code(502).send({ error: 'Could not reach direct audio provider' });
     }
     if (!upstream.ok && upstream.status !== 206) {
+      request.log.warn({ upstreamStatus: upstream.status }, 'Audio stream upstream returned an error');
       if (upstream.status === 416) return reply.code(416).send({ error: 'Requested audio range is not satisfiable' });
       return reply.code(upstream.status === 404 ? 404 : 502).send({ error: 'Audio stream unavailable' });
     }
     if (typeof rangeHeader === 'string' && upstream.status !== 206) {
+      request.log.warn({ upstreamStatus: upstream.status }, 'Audio stream upstream did not honor the requested range');
       return reply.code(502).send({ error: 'Upstream audio provider does not support byte ranges' });
     }
 
     const contentLength = upstream.headers.get('content-length');
     const contentRange = upstream.headers.get('content-range');
-    const contentType = 'audio/mp4';
+    const upstreamContentType = (upstream.headers.get('content-type') ?? '').split(';', 1)[0]?.trim().toLowerCase();
+    const contentType = upstreamContentType === 'audio/mp4' || upstreamContentType === 'audio/mpeg'
+      ? upstreamContentType
+      : 'audio/mp4';
     reply.header('Cache-Control', 'private, no-store');
     reply.header('Referrer-Policy', 'no-referrer');
-    reply.header('Accept-Ranges', upstream.headers.get('accept-ranges') ?? 'bytes');
+    reply.header('Accept-Ranges', 'bytes');
     reply.header('Content-Type', contentType);
     if (contentLength) reply.header('Content-Length', contentLength);
     if (contentRange) reply.header('Content-Range', contentRange);
@@ -70,9 +88,14 @@ export function registerTrackRoutes(app: FastifyInstance): void {
     const reader = upstream.body.getReader();
     const stream = new ReadableStream({
       async pull(controller) {
-        const result = await reader.read();
-        if (result.done) controller.close();
-        else controller.enqueue(result.value);
+        try {
+          const result = await reader.read();
+          if (result.done) controller.close();
+          else controller.enqueue(result.value);
+        } catch {
+          request.log.warn('Audio stream body read failed');
+          controller.error(new Error('Audio stream body read failed'));
+        }
       },
       cancel(reason) {
         void reader.cancel(reason);
