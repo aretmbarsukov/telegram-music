@@ -14,7 +14,7 @@ http.createServer((req, res) => {
 
   execFile(
     BIN,
-    ['-f', 'bestaudio[ext=m4a]/bestaudio', '-g', '--no-playlist', `https://www.youtube.com/watch?v=${id}`],
+    ['-f', '140/bestaudio[ext=m4a]', '-g', '--no-playlist', `https://www.youtube.com/watch?v=${id}`],
     { timeout: 15000 },
     (err, stdout) => {
       const streamUrl = stdout?.trim().split('\n')[0];
