@@ -22,4 +22,5 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/prisma.config.ts ./prisma.config.ts
 COPY package.json package-lock.json ./
 EXPOSE 8787
+RUN if command -v apt-get >/dev/null; then apt-get update && apt-get install -y --no-install-recommends python3 curl ca-certificates && rm -rf /var/lib/apt/lists/*; elif command -v apk >/dev/null; then apk add --no-cache python3 curl ca-certificates; fi && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && chmod a+rx /usr/local/bin/yt-dlp
 CMD ["npm", "start"]
