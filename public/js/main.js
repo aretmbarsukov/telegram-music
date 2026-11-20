@@ -138,11 +138,27 @@ function initializeNativeAudio() {
   nativeAudio.addEventListener("ended", handleNativeEnded);
   nativeAudio.addEventListener("play", () => updateNativeMediaSessionState("playing"));
   nativeAudio.addEventListener("pause", () => updateNativeMediaSessionState("paused"));
-  nativeAudio.addEventListener("error", () => {
-    notify("Не вдалося відтворити аудіопотік.");
-  });
+  nativeAudio.addEventListener("error", () => reportNativeAudioError());
 }
 initializeNativeAudio();
+function reportNativeAudioError(error) {
+  const name = error?.name || "MediaError";
+  const message = error?.message || nativeAudio?.error?.message || "Audio playback failed";
+  const code = nativeAudio?.error?.code;
+  const details = `${name}: ${message}${code ? ` (audio.error code ${code})` : ""}`;
+  playbackMessage = `Помилка аудіо: ${details}`;
+  notify(playbackMessage);
+  renderPlayer();
+}
+function playNativeAudio() {
+  if (!nativeAudio) return;
+  try {
+    const playRequest = nativeAudio.play();
+    playRequest?.catch((error) => reportNativeAudioError(error));
+  } catch (error) {
+    reportNativeAudioError(error);
+  }
+}
 function updateTelegramBackButton(name) {
   const backButton = telegram?.BackButton;
   if (!backButton) return;
@@ -217,7 +233,7 @@ async function loadApiLibrary() {
     if (!healthResponse.ok)
       throw new Error(`API недоступний (${healthResponse.status})`);
     apiHealth = await healthResponse.json();
-    directAudioMode = Boolean(apiHealth.audioProviderConfigured);
+    directAudioMode = apiHealth.audioStreamEnabled === true || apiHealth.audioProviderConfigured === true;
     if (!telegram?.initData && localApi && !apiHealth.devAuthEnabled)
       throw new Error(
         "Локальна авторизація вимкнена. Увімкни DEV_AUTH_ENABLED=true лише для розробки.",
@@ -840,7 +856,7 @@ function updateMediaSession() {
   };
   safeSet("play", () => {
     haptic();
-    if (directAudioMode && nativeAudio) nativeAudio.play().catch(() => notify("Не вдалося продовжити відтворення."));
+    if (directAudioMode && nativeAudio) playNativeAudio();
     else if (ytPlayer && loadedVideoId === currentId) ytPlayer.playVideo();
   });
   safeSet("pause", () => {
@@ -1352,7 +1368,7 @@ function runPlayerAction(action) {
       return;
     }
     if (directAudioMode && nativeAudio) {
-      if (nativeAudio.paused) nativeAudio.play().catch(() => notify("Не вдалося відтворити аудіопотік."));
+      if (nativeAudio.paused) playNativeAudio();
       else nativeAudio.pause();
     } else if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
     else if (loadedVideoId === currentId) ytPlayer.playVideo();
@@ -1405,10 +1421,7 @@ function loadQueueIndex(index) {
       ? `${streamPath}?initData=${encodeURIComponent(telegram.initData)}`
       : streamPath;
     nativeAudio.load();
-    nativeAudio.play().catch(() => {
-      playbackMessage = "Натисни ▶, щоб дозволити відтворення.";
-      renderPlayer();
-    });
+    playNativeAudio();
     updateMediaSession();
   } else if (apiReady) {
     loadedVideoId = id;
@@ -1848,7 +1861,7 @@ document.addEventListener("click", (e) => {
       return;
     }
     if (directAudioMode && nativeAudio) {
-      if (nativeAudio.paused) nativeAudio.play().catch(() => notify("Не вдалося відтворити аудіопотік."));
+      if (nativeAudio.paused) playNativeAudio();
       else nativeAudio.pause();
     } else if (ytPlayer.getPlayerState() === 1) ytPlayer.pauseVideo();
     else if (loadedVideoId === currentId) ytPlayer.playVideo();

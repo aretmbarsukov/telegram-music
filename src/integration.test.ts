@@ -63,10 +63,15 @@ before(async () => {
   assert.equal(health.json().devAuthEnabled, true);
   assert.equal(health.json().devAuthUserId, '100000001');
   assert.equal(health.json().youtubeMockEnabled, false);
+  assert.equal(health.json().audioStreamEnabled, false);
   const publicHealth = await app.inject({ method: 'GET', url: '/health' });
   assert.equal(publicHealth.statusCode, 200);
   assert.equal(publicHealth.json().ok, true);
+  assert.equal(publicHealth.json().audioStreamEnabled, false);
   const home = await app.inject({ method: 'GET', url: '/' });
+  assert.equal(home.headers['cache-control'], 'no-store, no-cache, must-revalidate');
+  const mainScript = await app.inject({ method: 'GET', url: '/js/main.js' });
+  assert.equal(mainScript.headers['cache-control'], 'no-store, no-cache, must-revalidate');
   const csp = home.headers['content-security-policy'];
   assert.ok(csp);
   assert.match(csp, /script-src[^;]*https:\/\/www\.youtube\.com/);
@@ -118,6 +123,8 @@ test('audio stream accepts signed initData in query and preserves Range forwardi
   const fetchBeforeTest = globalThis.fetch;
   const forwardedRanges: string[] = [];
   config.AUDIO_STREAM_PROVIDER_URL = 'https://provider.example/resolve?id={id}';
+  assert.equal((await app.inject({ method: 'GET', url: '/health' })).json().audioStreamEnabled, true);
+  assert.equal((await app.inject({ method: 'GET', url: '/api/health' })).json().audioStreamEnabled, true);
   globalThis.fetch = (async (input: URL | RequestInfo, init?: RequestInit) => {
     const url = new URL(typeof input === 'string' || input instanceof URL ? input : input.url);
     if (url.hostname === 'provider.example') {

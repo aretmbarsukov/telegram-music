@@ -25,6 +25,15 @@ test('player renderer only addresses elements present in the served HTML', async
   assert.match(source, /initializeTelegramWebApp/);
   assert.match(source, /AUDIO_STREAM_PROVIDER|directAudioMode|audio-stream/);
   assert.ok(source.includes('initData=${encodeURIComponent(telegram.initData)}'));
+  assert.ok(source.includes('apiHealth.audioStreamEnabled === true'));
+  assert.match(source, /const playRequest = nativeAudio\.play\(\)/);
+  assert.match(source, /playRequest\?\.catch\(\(error\) => reportNativeAudioError\(error\)\)/);
+  assert.match(source, /nativeAudio\?\.error\?\.code/);
+  assert.match(publicHtml, /href="css\/tokens\.css\?v=5"/);
+  assert.match(publicHtml, /href="css\/app\.css\?v=5"/);
+  assert.match(publicHtml, /src="i18n\.js\?v=5"/);
+  assert.match(publicHtml, /src="\/js\/main\.js\?v=5"/);
+  assert.match(publicHtml, /src="\/js\/seek-bar\.js\?v=5"/);
   assert.match(telegramBridge, /webApp\.ready/);
   assert.match(telegramBridge, /webApp\.expand/);
   assert.match(telegramBridge, /disableVerticalSwipes/);
