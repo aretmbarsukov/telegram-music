@@ -1,5 +1,12 @@
 # Handoff — 2026-11-17
 
+## External audio provider — 2026-11-20
+
+- Added opt-in `AUDIO_STREAM_PROVIDER_URL` configuration and `src/audio-provider.ts` with a 2-hour in-memory cache.
+- Added authenticated prefetch and public Range-proxy endpoints for direct audio streams. With no provider URL configured, the existing YouTube IFrame fallback remains active.
+- Added the persistent `#native-audio-player` element and native `<audio>` mode in `public/js/main.js`, including 20-second prefetch, automatic queue advance, Media Session metadata/actions, and seek position updates.
+- Direct provider availability is reported by `/api/health` as `audioProviderConfigured`; no provider credentials or resolved stream URLs are returned to the frontend.
+
 ## Modular frontend and API decomposition — 2026-11-20
 
 - Added `public/js/main.js` as the only browser module entrypoint. The former monolithic `public/app.js` is now loaded from `/js/main.js`; utility modules live in `public/js/player-queue.js`, `player-errors.js`, `player-volume.js`, and `seek-bar.js`.

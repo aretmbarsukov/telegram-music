@@ -15,6 +15,7 @@ const schema = z.object({
   DEV_AUTH_ENABLED: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   YOUTUBE_MOCK_MODE: z.enum(['true', 'false']).default('false').transform(value => value === 'true'),
   YOUTUBE_DAILY_QUOTA_LIMIT: z.coerce.number().int().min(1).max(10_000).default(9_000),
+  AUDIO_STREAM_PROVIDER_URL: z.string().trim().optional(),
   APP_ORIGIN: z.string().url(),
   DEV_AUTH_USER_ID: z.string().regex(/^\d{1,20}$/).default('100000001'),
 });
