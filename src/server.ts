@@ -2,7 +2,7 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import staticFiles from '@fastify/static';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Bot } from 'grammy';
 
@@ -46,7 +46,18 @@ export async function createApp(options: { telegramBot?: Bot; runBackgroundSync?
 
   await app.register(cors, { origin: config.APP_ORIGIN, methods: ['GET', 'POST', 'PATCH', 'DELETE'] });
   await app.register(rateLimit, { max: 120, timeWindow: '1 minute' });
-  await app.register(staticFiles, { root: resolve(process.cwd(), 'public'), prefix: '/', index: ['index.html'] });
+  const publicRoot = resolve(process.cwd(), 'public');
+  await app.register(staticFiles, {
+    root: publicRoot,
+    prefix: '/',
+    index: ['index.html'],
+    setHeaders(reply, filePath) {
+      const publicPath = relative(publicRoot, filePath).replace(/\\/g, '/');
+      if (publicPath === 'index.html' || publicPath.startsWith('js/')) {
+        reply.header('Cache-Control', 'no-store, no-cache, must-revalidate');
+      }
+    },
+  });
 
   registerErrorHandler(app);
   registerWebhookRoute(app, options.telegramBot);
@@ -55,7 +66,11 @@ export async function createApp(options: { telegramBot?: Bot; runBackgroundSync?
   registerPlaylistRoutes(app);
   registerVibeRoutes(app);
 
-  app.get('/health', async () => ({ ok: true, service: 'telegram-music' }));
+  app.get('/health', async () => ({
+    ok: true,
+    service: 'telegram-music',
+    audioStreamEnabled: Boolean(config.AUDIO_STREAM_PROVIDER_URL?.trim()),
+  }));
   app.get('/api/health', async () => ({
     ok: true,
     service: 'telegram-music-api',
@@ -63,6 +78,7 @@ export async function createApp(options: { telegramBot?: Bot; runBackgroundSync?
     devAuthUserId: config.DEV_AUTH_ENABLED && config.NODE_ENV !== 'production' ? config.DEV_AUTH_USER_ID : null,
     youtubeMockEnabled: config.YOUTUBE_MOCK_MODE,
     audioProviderConfigured: Boolean(config.AUDIO_STREAM_PROVIDER_URL?.trim()),
+    audioStreamEnabled: Boolean(config.AUDIO_STREAM_PROVIDER_URL?.trim()),
   }));
 
   if (options.runBackgroundSync) stopBackgroundSync = startSyncWorker({ runImmediately: false });
