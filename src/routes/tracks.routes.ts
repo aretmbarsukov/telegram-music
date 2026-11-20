@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { getDatabase } from '../database.js';
-import { authHook, identity, videoIdSchema } from './shared.js';
+import { authHook, identity, queryInitDataAuthHook, videoIdSchema } from './shared.js';
 import { AudioProviderError, getAudioProviderUrl, resolveDirectAudio } from '../audio-provider.js';
 
 export function registerTrackRoutes(app: FastifyInstance): void {
@@ -18,7 +18,10 @@ export function registerTrackRoutes(app: FastifyInstance): void {
     }
   });
 
-  app.get('/api/tracks/:id/audio-stream', async (request, reply) => {
+  app.get('/api/tracks/:id/audio-stream', {
+    preHandler: queryInitDataAuthHook,
+    logLevel: 'silent',
+  }, async (request, reply) => {
     const params = z.object({ id: videoIdSchema }).safeParse(request.params);
     if (!params.success) return reply.code(400).send({ error: 'Invalid track ID' });
     if (!getAudioProviderUrl()) return reply.code(404).send({ error: 'Direct audio provider is not configured' });
@@ -51,8 +54,9 @@ export function registerTrackRoutes(app: FastifyInstance): void {
     const contentLength = upstream.headers.get('content-length');
     const contentRange = upstream.headers.get('content-range');
     const contentType = 'audio/mp4';
+    reply.header('Cache-Control', 'private, no-store');
+    reply.header('Referrer-Policy', 'no-referrer');
     reply.header('Accept-Ranges', upstream.headers.get('accept-ranges') ?? 'bytes');
-    reply.header('Cache-Control', 'private, max-age=60');
     reply.header('Content-Type', contentType);
     if (contentLength) reply.header('Content-Length', contentLength);
     if (contentRange) reply.header('Content-Range', contentRange);

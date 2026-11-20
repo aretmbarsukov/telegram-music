@@ -24,6 +24,7 @@ test('player renderer only addresses elements present in the served HTML', async
   assert.match(source, /playerVars:\s*\{\s*playsinline:\s*1,\s*origin:\s*location\.origin,\s*controls:\s*0\s*\}/);
   assert.match(source, /initializeTelegramWebApp/);
   assert.match(source, /AUDIO_STREAM_PROVIDER|directAudioMode|audio-stream/);
+  assert.ok(source.includes('initData=${encodeURIComponent(telegram.initData)}'));
   assert.match(telegramBridge, /webApp\.ready/);
   assert.match(telegramBridge, /webApp\.expand/);
   assert.match(telegramBridge, /disableVerticalSwipes/);

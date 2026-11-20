@@ -1400,7 +1400,10 @@ function loadQueueIndex(index) {
   render();
   showView("player");
   if (directAudioMode && nativeAudio) {
-    nativeAudio.src = `/api/tracks/${encodeURIComponent(id)}/audio-stream`;
+    const streamPath = `/api/tracks/${encodeURIComponent(id)}/audio-stream`;
+    nativeAudio.src = telegram?.initData
+      ? `${streamPath}?initData=${encodeURIComponent(telegram.initData)}`
+      : streamPath;
     nativeAudio.load();
     nativeAudio.play().catch(() => {
       playbackMessage = "Натисни ▶, щоб дозволити відтворення.";
